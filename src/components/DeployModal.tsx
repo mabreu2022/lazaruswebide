@@ -278,7 +278,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({
                     <span>{copiedLink ? 'Copiado!' : 'Copiar'}</span>
                   </button>
                   <a
-                    href={deployResult.deployUrl}
+                    href={`${deployResult.deployUrl}?v=${deployResult.timestamp || Date.now()}`}
                     target="_blank"
                     rel="noreferrer"
                     className="deploy-action-btn open-btn"
@@ -293,12 +293,12 @@ export const DeployModal: React.FC<DeployModalProps> = ({
                 <div className="deploy-preview-container">
                   <div className="preview-topbar">
                     <span className="preview-label">Visualização em Tempo Real (Preview ao Vivo):</span>
-                    <a href={deployResult.deployUrl} target="_blank" rel="noreferrer" className="preview-link">
+                    <a href={`${deployResult.deployUrl}?v=${deployResult.timestamp || Date.now()}`} target="_blank" rel="noreferrer" className="preview-link">
                       {deployResult.deployUrl}
                     </a>
                   </div>
                   <iframe
-                    src={deployResult.deployUrl}
+                    src={`${deployResult.deployUrl}?v=${deployResult.timestamp || Date.now()}`}
                     title="Preview da Aplicação"
                     className="deploy-preview-iframe"
                   />

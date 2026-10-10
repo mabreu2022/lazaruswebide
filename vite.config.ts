@@ -119,6 +119,9 @@ function lazarusDeployPlugin(): Plugin {
               '.lpr': 'text/plain; charset=utf-8'
             };
             res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
             res.statusCode = 200;
             const content = fs.readFileSync(filePath);
             res.end(content);
