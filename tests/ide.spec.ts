@@ -81,6 +81,11 @@ test('Containers: componente solto no Panel vira filho, acompanha o pai e é exc
   expect(Math.round(bBox2.y - bBox.y)).toBeGreaterThan(20);
   await expect(btn).toHaveAttribute('data-parent-id', /.+/);
 
+  // com o Panel selecionado, o filho continua visivel (acima do pai)
+  const cx = bBox2.x + bBox2.width / 2, cy = bBox2.y + bBox2.height / 2;
+  const top = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[data-comp-name]')?.getAttribute('data-comp-name'), [cx, cy]);
+  expect(top).toBe('Button2');
+
   // excluir o Panel remove o botão (cascata)
   await panel.click({ position: { x: 5, y: 5 }, force: true });
   await page.keyboard.press('Delete');

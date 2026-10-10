@@ -739,7 +739,8 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
                   top: `${displayTop}px`,
                   width: `${rect.width}px`,
                   height: `${rect.height}px`,
-                  zIndex: isSelected ? 100 : (10 + depth * 2)
+                  // Profundidade manda: filhos sempre acima do pai (mesmo com o pai selecionado)
+                  zIndex: 10 + depth * 2 + (isSelected ? 1 : 0)
                 }}
                 onMouseDown={(e) => handleComponentMouseDown(e, comp)}
                 onDoubleClick={(e) => {
