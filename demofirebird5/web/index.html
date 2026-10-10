@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRUD de Clientes - Firebird 5.0 (banco.fdb real)</title>
+  <meta name="description" content="Demonstração de CRUD com banco de dados Firebird 5.0 físico: tabela CLIENTES." />
+  <style>
+    :root { --bg:#0b1220; --panel:#111a2e; --line:#223152; --txt:#e6edf7; --mut:#8aa0c4; --acc:#38bdf8; --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: 'Segoe UI', Inter, system-ui, sans-serif; background: radial-gradient(1200px 600px at 10% -10%, #14305a55, transparent), var(--bg); color:var(--txt); }
+    header { padding:18px 28px; display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--line); background:#0d1730cc; backdrop-filter: blur(6px); position:sticky; top:0; z-index:5; }
+    header h1 { font-size:18px; margin:0; font-weight:700; letter-spacing:.2px; }
+    header .tag { font-size:11px; padding:3px 9px; border-radius:99px; background:#38bdf822; color:var(--acc); border:1px solid #38bdf855; }
+    header .spacer { flex:1; }
+    main { display:grid; grid-template-columns: 340px 1fr; gap:20px; padding:24px 28px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 30px #0006; }
+    .card h2 { margin:0; padding:14px 16px; font-size:14px; border-bottom:1px solid var(--line); color:var(--acc); }
+    form { padding:14px 16px 18px; display:flex; flex-direction:column; gap:10px; }
+    label { font-size:11.5px; color:var(--mut); display:flex; flex-direction:column; gap:4px; }
+    input { background:#0a1326; border:1px solid var(--line); color:var(--txt); border-radius:7px; padding:8px 10px; font-size:13px; transition:.15s; }
+    input:focus { outline:none; border-color:var(--acc); box-shadow:0 0 0 3px #38bdf833; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    button { cursor:pointer; border:1px solid var(--line); background:#16233f; color:var(--txt); border-radius:8px; padding:8px 14px; font-size:13px; font-weight:600; transition:.15s; }
+    button:hover { transform: translateY(-1px); border-color:var(--acc); }
+    button.primary { background:linear-gradient(135deg,#0ea5e9,#2563eb); border-color:transparent; }
+    button.danger { color:#fecaca; background:#7f1d1d55; border-color:#ef444466; }
+    .tools { padding:12px 16px; display:flex; gap:10px; align-items:center; border-bottom:1px solid var(--line); }
+    .tools input { flex:1; }
+    .count { font-size:12px; color:var(--mut); }
+    .tbl-wrap { overflow:auto; max-height: calc(100vh - 210px); }
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    th { position:sticky; top:0; background:#0d1730; text-align:left; padding:9px 10px; color:var(--mut); font-weight:600; border-bottom:1px solid var(--line); white-space:nowrap; }
+    td { padding:9px 10px; border-bottom:1px solid #1a2745; white-space:nowrap; max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+    tr.sel td { background:#38bdf81a; }
+    tbody tr { cursor:pointer; transition:background .12s; }
+    tbody tr:hover td { background:#ffffff08; }
+    .toast { position:fixed; right:20px; bottom:20px; padding:11px 16px; border-radius:9px; background:#0f1d38; border:1px solid var(--line); font-size:13px; opacity:0; transform:translateY(8px); transition:.25s; pointer-events:none; }
+    .toast.show { opacity:1; transform:none; }
+    .toast.ok { border-color:var(--ok); } .toast.err { border-color:var(--bad); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CRUD de Clientes</h1>
+    <span class="tag">Firebird 5.0</span>
+    <span class="tag" id="dbtag">banco.fdb</span>
+    <span class="spacer"></span>
+    <button id="btnReload" title="Recarregar do banco">↻ Atualizar</button>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2 id="formTitle">Novo cliente</h2>
+      <form id="frm" autocomplete="off">
+        <label>Código <input id="ID" readonly placeholder="(automático - GEN_CLIENTES_ID)" /></label>
+        <label>Nome * <input id="NOME" maxlength="100" required /></label>
+        <label>Endereço <input id="ENDERECO" maxlength="150" /></label>
+        <label>CNPJ <input id="CNPJ" maxlength="18" placeholder="00.000.000/0000-00" /></label>
+        <label>Telefone <input id="TELEFONE" maxlength="20" placeholder="(00) 0000-0000" /></label>
+        <label>Contato <input id="CONTATO" maxlength="80" /></label>
+        <label>E-mail <input id="EMAIL" type="email" maxlength="100" /></label>
+        <div class="row">
+          <button class="primary" type="submit" id="btnSave">Gravar</button>
+          <button type="button" id="btnNew">Novo</button>
+          <button type="button" class="danger" id="btnDel" disabled>Excluir</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="tools">
+        <input id="filtro" placeholder="Filtrar por nome, CNPJ, contato ou e-mail..." />
+        <span class="count" id="count"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Nome</th><th>Endereço</th><th>CNPJ</th><th>Telefone</th><th>Contato</th><th>E-mail</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const F = ['ID','NOME','ENDERECO','CNPJ','TELEFONE','CONTATO','EMAIL'];
+    const $ = id => document.getElementById(id);
+    let data = [], selected = null;
+
+    function toast(msg, ok = true) {
+      const t = $('toast'); t.textContent = msg; t.className = 'toast show ' + (ok ? 'ok' : 'err');
+      clearTimeout(toast.h); toast.h = setTimeout(() => (t.className = 'toast'), 2800);
+    }
+    async function call(method, url, body) {
+      const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.statusText);
+      return j;
+    }
+    function render() {
+      const q = $('filtro').value.trim().toLowerCase();
+      const list = data.filter(r => !q || [r.NOME, r.CNPJ, r.CONTATO, r.EMAIL].some(v => (v || '').toLowerCase().includes(q)));
+      $('rows').innerHTML = list.map(r =>
+        `<tr data-id="${r.ID}" class="${selected === r.ID ? 'sel' : ''}">` +
+        F.map(c => `<td title="${(r[c] ?? '').toString().replace(/"/g, '&quot;')}">${r[c] ?? ''}</td>`).join('') + '</tr>'
+      ).join('');
+      $('count').textContent = `${list.length} de ${data.length} registro(s)`;
+    }
+    function fill(r) {
+      F.forEach(c => ($(c).value = r ? (r[c] ?? '') : ''));
+      selected = r ? r.ID : null;
+      $('btnDel').disabled = !r;
+      $('formTitle').textContent = r ? `Editando cliente #${r.ID}` : 'Novo cliente';
+      render();
+    }
+    async function load() {
+      try { data = await call('GET', '/api/clientes'); render(); toast(`${data.length} clientes carregados do Firebird 5.0`); }
+      catch (e) { toast('Erro: ' + e.message.slice(0, 160), false); }
+    }
+    $('rows').addEventListener('click', e => {
+      const tr = e.target.closest('tr'); if (!tr) return;
+      fill(data.find(r => r.ID === Number(tr.dataset.id)));
+    });
+    $('frm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = {}; F.filter(c => c !== 'ID').forEach(c => (body[c] = $(c).value));
+      try {
+        if (selected) { await call('PUT', '/api/clientes/' + selected, body); toast('Cliente atualizado.'); }
+        else { const n = await call('POST', '/api/clientes', body); selected = n.ID; toast('Cliente inserido (ID ' + n.ID + ').'); }
+        await load();
+        fill(data.find(r => r.ID === selected) || null);
+      } catch (err) { toast('Erro: ' + err.message.slice(0, 160), false); }
+    });
+    $('btnNew').onclick = () => fill(null);
+    $('btnDel').onclick = async () => {
+      if (!selected || !confirm('Excluir o cliente #' + selected + '?')) return;
+      try { await call('DELETE', '/api/clientes/' + selected); toast('Cliente excluído.'); fill(null); await load(); }
+      catch (err) { toast('Erro: ' + err.message.slice(0, 160), false); }
+    };
+    $('btnReload').onclick = load;
+    $('filtro').oninput = render;
+    load();
+  </script>
+</body>
+</html>

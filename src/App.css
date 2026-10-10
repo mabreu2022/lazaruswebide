@@ -3656,3 +3656,12 @@
 }
 
 
+
+/* Pages manager (TPageControl / TNotebook) */
+.pages-manager { display: flex; flex-direction: column; gap: 5px; align-items: stretch; padding: 3px 0; }
+.pages-chip-list { display: flex; flex-wrap: wrap; gap: 3px; }
+.page-chip { background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-secondary); border-radius: 3px; font-size: 10.5px; padding: 1px 7px; cursor: pointer; }
+.page-chip:hover { border-color: var(--accent-cyan); color: var(--text-main); }
+.page-chip.active { background: rgba(56,189,248,0.18); border-color: #38bdf8; color: #f0f9ff; font-weight: 600; }
+.pages-actions { display: flex; gap: 4px; }
+.pages-actions button:disabled { opacity: .4; cursor: not-allowed; }

@@ -367,7 +367,7 @@ const LazarusIDE: React.FC = () => {
         width: def.defaultWidth - 8,
         height: def.defaultHeight - 34,
         enabled: true,
-        visible: false,
+        visible: true,
         events: {},
         eventCode: {}
       };
@@ -401,7 +401,7 @@ const LazarusIDE: React.FC = () => {
         width: def.defaultWidth - 8,
         height: def.defaultHeight - 8,
         enabled: true,
-        visible: false,
+        visible: true,
         events: {},
         eventCode: {}
       };
@@ -442,9 +442,41 @@ const LazarusIDE: React.FC = () => {
       extraChildren.push(s1, s2);
     }
 
+    // Adding a new page/tab sheet to a PageControl / Notebook
+    let ownerPatch: { id: string; updates: Partial<LComponent> } | null = null;
+    if (type === 'TTabSheet' || type === 'TPage') {
+      const ownerType = type === 'TTabSheet' ? 'TPageControl' : 'TNotebook';
+      // Resolve owner: parent itself, or the owner of the sheet that was targeted
+      let owner = form.components.find(c => c.id === parentId);
+      if (owner && owner.type === type && owner.parentId) {
+        owner = form.components.find(c => c.id === owner!.parentId);
+      }
+      if (!owner || owner.type !== ownerType) {
+        addConsoleLog(`${type} só pode ser adicionado dentro de um ${ownerType}.`, 'warning');
+        return;
+      }
+      const siblings = form.components.filter(c => c.parentId === owner!.id && c.type === type);
+      const idx = siblings.length;
+      newComp.parentId = owner.id;
+      newComp.name = getNextComponentName(type, form.components);
+      newComp.caption = `Página ${idx + 1}`;
+      newComp.left = 0;
+      newComp.top = 0;
+      newComp.width = Math.max(20, owner.width - 8);
+      newComp.height = Math.max(20, owner.height - 34);
+      newComp.visible = true;
+      ownerPatch = type === 'TTabSheet'
+        ? { id: owner.id, updates: { activeTab: idx, activePageIndex: idx } }
+        : { id: owner.id, updates: { pageIndex: idx, activePageIndex: idx } };
+    }
+
+    const baseComponents = ownerPatch
+      ? form.components.map(c => (c.id === ownerPatch!.id ? { ...c, ...ownerPatch!.updates } : c))
+      : form.components;
+
     const updatedForm: LForm = {
       ...form,
-      components: [...form.components, newComp, ...extraChildren]
+      components: [...baseComponents, newComp, ...extraChildren]
     };
 
     pushState(updatedForm);
@@ -1372,6 +1404,8 @@ const LazarusIDE: React.FC = () => {
           onUpdateComponent={handleUpdateComponent}
           onUpdateForm={handleUpdateForm}
           onOpenEventHandler={handleOpenEventHandler}
+          onAddComponent={handleAddComponent}
+          onDeleteComponents={handleDeleteComponents}
         />
 
         {/* Center Dock: Form Designer or Code Editor with Unified Persistent Tabs */}

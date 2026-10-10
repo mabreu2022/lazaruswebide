@@ -53,6 +53,7 @@ export type LComponentType =
   | 'TZTransaction'
   | 'TZQuery'
   | 'TZTable'
+  | 'TZMemTable'
   | 'TDataSource';
 
 export interface LComponentDefinition {
@@ -151,7 +152,9 @@ export interface LComponent {
   transactIsolationLevel?: 'tiReadCommitted' | 'tiSerializable' | 'tiRepeatableRead' | 'tiNone'; // Zeos Transaction Isolation
   sql?: string;              // 'SELECT * FROM CLIENTES'
   active?: boolean;          // True / False
-  datasetName?: string;      // Reference to TZQuery / TZTable
+  memFieldDefs?: string;     // TZMemTable FieldDefs: 'ID:ftInteger' / 'NOME:ftString:60' (one per line)
+  memData?: string;          // TZMemTable rows: CSV (one record per line, ';' separated)
+  datasetName?: string;      // Reference to TZQuery / TZTable / TZMemTable
   dataSourceName?: string;   // Reference to TDataSource
   dataField?: string;        // 'NOME', 'EMAIL', etc.
   // Events mapping: event name -> method name

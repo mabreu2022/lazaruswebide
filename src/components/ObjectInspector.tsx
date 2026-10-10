@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import type {
   LComponent,
   LForm,
-  AlignType
+  AlignType,
+  LComponentType
 } from '../types/lazarus';
 import { STANDARD_EVENTS, FORM_EVENTS } from '../data/componentRegistry';
 import { isContainerComponent, canAdoptChild } from '../utils/layoutEngine';
@@ -23,6 +24,8 @@ interface ObjectInspectorProps {
   onUpdateComponent: (id: string, updates: Partial<LComponent>) => void;
   onUpdateForm: (updates: Partial<LForm>) => void;
   onOpenEventHandler: (componentId: string | null, eventName: string, procedureName: string) => void;
+  onAddComponent?: (type: LComponentType, x: number, y: number, parentId?: string) => void;
+  onDeleteComponents?: (ids: string[]) => void;
 }
 
 export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
@@ -32,7 +35,9 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
   onSelectForm,
   onUpdateComponent,
   onUpdateForm,
-  onOpenEventHandler
+  onOpenEventHandler,
+  onAddComponent,
+  onDeleteComponents
 }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'events'>('properties');
   const [filterQuery, setFilterQuery] = useState('');
@@ -532,12 +537,72 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                 )}
 
                 {/* ActivePageIndex (TPageControl, TNotebook) */}
+                {/* Pages manager (TPageControl, TNotebook) */}
+                {['TPageControl', 'TNotebook'].includes(selectedComp.type) && filterMatch('Pages', filterQuery) && (() => {
+                  const isPC = selectedComp.type === 'TPageControl';
+                  const pageType: LComponentType = isPC ? 'TTabSheet' : 'TPage';
+                  const pages = form.components.filter(c => c.parentId === selectedComp.id && c.type === pageType);
+                  const activeIdx = Math.min(
+                    Math.max(0, (isPC ? (selectedComp.activeTab ?? selectedComp.activePageIndex) : (selectedComp.pageIndex ?? selectedComp.activePageIndex)) ?? 0),
+                    Math.max(0, pages.length - 1)
+                  );
+                  const activate = (i: number) => onUpdateComponent(
+                    selectedComp.id,
+                    isPC ? { activeTab: i, activePageIndex: i } : { pageIndex: i, activePageIndex: i }
+                  );
+                  return (
+                    <div className="property-row pages-manager-row">
+                      <div className="prop-label-col" title="Pages"><span>Pages</span></div>
+                      <div className="prop-value-col pages-manager">
+                        <div className="pages-chip-list">
+                          {pages.map((pg, i) => (
+                            <button
+                              key={pg.id}
+                              type="button"
+                              className={`page-chip ${i === activeIdx ? 'active' : ''}`}
+                              title={`${pg.name} - clique para ativar, duplo-clique para selecionar`}
+                              onClick={() => activate(i)}
+                              onDoubleClick={() => onSelectComponent(pg.id)}
+                            >
+                              {pg.caption || pg.name}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="pages-actions">
+                          <button
+                            type="button"
+                            className="prop-file-btn"
+                            onClick={() => onAddComponent?.(pageType, 0, 0, selectedComp.id)}
+                            title="Adicionar nova página"
+                          >
+                            + Nova Página
+                          </button>
+                          <button
+                            type="button"
+                            className="prop-btn-clear"
+                            disabled={pages.length <= 1}
+                            onClick={() => {
+                              const target = pages[activeIdx];
+                              if (target && confirm(`Excluir a página "${target.caption || target.name}" e seus componentes?`)) {
+                                onDeleteComponents?.([target.id]);
+                                activate(Math.max(0, activeIdx - 1));
+                              }
+                            }}
+                            title="Excluir página ativa"
+                          >
+                            − Excluir
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 {['TPageControl', 'TNotebook'].includes(selectedComp.type) && filterMatch('ActivePageIndex', filterQuery) && (
                   <PropertyRow
                     label="ActivePageIndex"
                     type="number"
                     value={selectedComp.activePageIndex ?? selectedComp.activeTab ?? 0}
-                    onChange={(val) => onUpdateComponent(selectedComp.id, { activePageIndex: Number(val), activeTab: Number(val) })}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { activePageIndex: Number(val), activeTab: Number(val), pageIndex: Number(val) })}
                   />
                 )}
 
@@ -843,6 +908,36 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                   </>
                 )}
 
+                {/* Zeos: TZMemTable Properties */}
+                {selectedComp.type === 'TZMemTable' && (
+                  <>
+                    {filterMatch('FieldDefs', filterQuery) && (
+                      <PropertyRow
+                        label="FieldDefs"
+                        type="textarea"
+                        value={selectedComp.memFieldDefs ?? 'ID:ftInteger\nNOME:ftString:60'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { memFieldDefs: String(val) })}
+                      />
+                    )}
+                    {filterMatch('Data', filterQuery) && (
+                      <PropertyRow
+                        label="Data (CSV ;)"
+                        type="textarea"
+                        value={selectedComp.memData ?? ''}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { memData: String(val) })}
+                      />
+                    )}
+                    {filterMatch('Active', filterQuery) && (
+                      <PropertyRow
+                        label="Active"
+                        type="boolean"
+                        value={selectedComp.active ?? false}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { active: Boolean(val) })}
+                      />
+                    )}
+                  </>
+                )}
+
                 {/* Zeos: TDataSource Properties */}
                 {selectedComp.type === 'TDataSource' && (
                   <>
@@ -850,8 +945,8 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                       <PropertyRow
                         label="DataSet"
                         type="select"
-                        options={['(Nenhum)', ...form.components.filter(c => ['TZQuery', 'TZTable'].includes(c.type)).map(c => c.name)]}
-                        value={selectedComp.datasetName || (form.components.find(c => ['TZQuery', 'TZTable'].includes(c.type))?.name || '')}
+                        options={['(Nenhum)', ...form.components.filter(c => ['TZQuery', 'TZTable', 'TZMemTable'].includes(c.type)).map(c => c.name)]}
+                        value={selectedComp.datasetName || (form.components.find(c => ['TZQuery', 'TZTable', 'TZMemTable'].includes(c.type))?.name || '')}
                         onChange={(val) => onUpdateComponent(selectedComp.id, { datasetName: String(val) })}
                       />
                     )}
@@ -952,7 +1047,7 @@ function filterMatch(label: string, query: string): boolean {
 interface PropertyRowProps {
   label: string;
   value?: string | number | boolean;
-  type?: 'text' | 'number' | 'boolean' | 'color' | 'select';
+  type?: 'text' | 'number' | 'boolean' | 'color' | 'select' | 'textarea';
   options?: string[];
   readOnly?: boolean;
   onChange?: (val: string | number | boolean) => void;
@@ -993,6 +1088,14 @@ const PropertyRow: React.FC<PropertyRowProps> = ({
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
+        ) : type === 'textarea' ? (
+          <textarea
+            className="prop-input"
+            rows={4}
+            style={{ resize: 'vertical', fontFamily: 'monospace', width: '100%' }}
+            value={typeof value === 'string' ? value : ''}
+            onChange={(e) => onChange?.(e.target.value)}
+          />
         ) : type === 'color' ? (
           <div className="color-prop-box">
             <input

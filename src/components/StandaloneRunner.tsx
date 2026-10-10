@@ -20,7 +20,8 @@ function getHierarchyDepth(id: string, components: LComponent[]): number {
 }
 
 function isComponentVisibleInHierarchy(comp: LComponent, components: LComponent[]): boolean {
-  if (comp.visible === false) return false;
+  const isPageLike = (c: LComponent) => c.type === 'TTabSheet' || c.type === 'TPage';
+  if (comp.visible === false && !isPageLike(comp)) return false;
   let currParentId = comp.parentId;
   const visited = new Set<string>();
 
@@ -30,7 +31,7 @@ function isComponentVisibleInHierarchy(comp: LComponent, components: LComponent[
 
     const parent = components.find(c => c.id === currParentId);
     if (!parent) break;
-    if (parent.visible === false) return false;
+    if (parent.visible === false && !isPageLike(parent)) return false;
 
     // Check if parent is a TabSheet inside a PageControl
     if (parent.type === 'TTabSheet' && parent.parentId) {
@@ -749,7 +750,36 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, allComps, o
         <div className="run-widget lcl-pairsplitterside" style={fontStyle} />
       );
 
-    case 'TDBGrid':
+    case 'TDBGrid': {
+      // Resolve DBGrid -> DataSource -> ZMemTable (in-memory dataset with real data)
+      const ds = allComps.find(c => c.type === 'TDataSource' && c.name === comp.dataSourceName)
+        || allComps.find(c => c.type === 'TDataSource');
+      const dset = ds
+        ? allComps.find(c => c.name === ds.datasetName && c.type === 'TZMemTable')
+          || allComps.find(c => c.type === 'TZMemTable' && !ds.datasetName)
+        : undefined;
+
+      if (dset && dset.memFieldDefs) {
+        const cols = dset.memFieldDefs.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+          .map(d => d.split(':')[0]);
+        const rows = (dset.memData || '').split(/\r?\n/).filter(r => r.trim() !== '')
+          .map(r => r.split(';'));
+        return (
+          <div className="run-widget run-dbgrid" style={{ overflow: 'auto' }}>
+            <div className="grid-header-row" style={{ display: 'flex' }}>
+              {cols.map(c => <div key={c} className="grid-cell" style={{ flex: 1, minWidth: 70 }}>{c}</div>)}
+            </div>
+            <div className="grid-body-rows">
+              {rows.map((r, ri) => (
+                <div key={ri} className="grid-row" style={{ display: 'flex' }} onClick={() => onTrigger('OnCellClick')}>
+                  {cols.map((c, ci) => <div key={c} className="grid-cell" style={{ flex: 1, minWidth: 70 }}>{r[ci] ?? ''}</div>)}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="run-widget run-dbgrid">
           <div className="grid-header-row">
@@ -780,6 +810,7 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, allComps, o
           </div>
         </div>
       );
+    }
 
     case 'TShape':
       return (

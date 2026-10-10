@@ -32,6 +32,37 @@ export function isContainerComponent(type: LComponentType): boolean {
   return CONTAINER_TYPES.includes(type);
 }
 
+/** Child types that can only live inside one specific parent type (page-like components) */
+export const PAGE_PARENT_TYPE: Partial<Record<LComponentType, LComponentType>> = {
+  TTabSheet: 'TPageControl',
+  TPage: 'TNotebook',
+  TPairSplitterSide: 'TPairSplitter'
+};
+
+/**
+ * Repairs page-like components (TTabSheet/TPage/TPairSplitterSide) that were wrongly
+ * nested inside something other than their owning control. Returns same array if nothing changed.
+ */
+export function repairPageHierarchy(components: LComponent[]): LComponent[] {
+  let changed = false;
+  const fixed = components.map(c => {
+    const need = PAGE_PARENT_TYPE[c.type];
+    if (!need || !c.parentId) return c;
+    let curr = components.find(x => x.id === c.parentId);
+    const guard = new Set<string>();
+    while (curr && curr.type !== need && !guard.has(curr.id)) {
+      guard.add(curr.id);
+      curr = curr.parentId ? components.find(x => x.id === curr!.parentId) : undefined;
+    }
+    if (curr && curr.type === need && curr.id !== c.parentId) {
+      changed = true;
+      return { ...c, parentId: curr.id };
+    }
+    return c;
+  });
+  return changed ? fixed : components;
+}
+
 /**
  * Checks if a container can adopt a child without causing a circular hierarchy
  */
@@ -40,6 +71,13 @@ export function canAdoptChild(
   childId: string,
   components: LComponent[]
 ): boolean {
+  const childComp = components.find(c => c.id === childId);
+  const need = childComp ? PAGE_PARENT_TYPE[childComp.type] : undefined;
+  if (need) {
+    // Pages/tab sheets/splitter sides are only valid inside their owner control
+    const parent = components.find(c => c.id === candidateParentId);
+    return !!parent && parent.type === need;
+  }
   if (!candidateParentId) return true; // Placing on Form root is always valid
   if (candidateParentId === childId) return false; // Cannot be parent of itself
 
@@ -419,6 +457,15 @@ export function computeFullFormLayout(
         availWidth,
         availHeight,
         parentContainer.splitterPosition
+      );
+    } else if (parentContainer?.type === 'TPageControl' || parentContainer?.type === 'TNotebook') {
+      // Tab sheets / pages always fill the client area of their owner
+      computedLocal = computeContainerLayout(
+        directChildren.map(c =>
+          (c.type === 'TTabSheet' || c.type === 'TPage') ? { ...c, align: 'alClient' as AlignType } : c
+        ),
+        availWidth,
+        availHeight
       );
     } else {
       computedLocal = computeContainerLayout(

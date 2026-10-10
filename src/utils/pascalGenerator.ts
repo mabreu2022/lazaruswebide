@@ -14,7 +14,7 @@ export function generateUnitPas(form: LForm): string {
 
   const extraUses = [];
   if (hasDB) extraUses.push('DB');
-  if (hasZeos) extraUses.push('ZConnection', 'ZDataset', 'ZAbstractRODataset', 'ZTransaction');
+  if (hasZeos) extraUses.push('ZConnection', 'ZDataset', 'ZAbstractRODataset', 'ZTransaction', 'ZMemTable');
   if (hasPairSplitter) extraUses.push('PairSplitter');
 
   // Collect event procedures
@@ -238,6 +238,23 @@ function generateSingleComponentLFM(comp: LComponent, form: LForm, indent: strin
     if (comp.connectionName) lines.push(`${indent}  Connection = ${comp.connectionName}`);
     if (comp.transactionName) lines.push(`${indent}  Transaction = ${comp.transactionName}`);
     if (comp.text) lines.push(`${indent}  TableName = '${comp.text}'`);
+    if (comp.active) lines.push(`${indent}  Active = True`);
+  }
+
+  // Zeos TZMemTable properties
+  if (comp.type === 'TZMemTable') {
+    const defs = (comp.memFieldDefs || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    if (defs.length > 0) {
+      lines.push(`${indent}  FieldDefs = <`);
+      defs.forEach((d, i) => {
+        const [fname, ftype = 'ftString', fsize] = d.split(':');
+        lines.push(`${indent}    item`);
+        lines.push(`${indent}      Name = '${fname}'`);
+        lines.push(`${indent}      DataType = ${ftype}`);
+        if (fsize) lines.push(`${indent}      Size = ${fsize}`);
+        lines.push(`${indent}    end${i === defs.length - 1 ? '>' : ''}`);
+      });
+    }
     if (comp.active) lines.push(`${indent}  Active = True`);
   }
 

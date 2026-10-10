@@ -408,6 +408,17 @@ export const COMPONENT_DEFINITIONS: Record<LComponentType, LComponentDefinition>
     description: 'Dataset de Tabela Firebird 5.0 (Zeos DBO)',
     isNonVisual: true
   },
+  TZMemTable: {
+    type: 'TZMemTable',
+    category: 'Zeos / Firebird',
+    defaultName: 'ZMemTable',
+    defaultCaption: 'ZMemTable1',
+    defaultWidth: 42,
+    defaultHeight: 42,
+    iconName: 'MemoryStick',
+    description: 'Dataset em memória (Zeos ZMemTable) - FieldDefs e dados sem precisar de banco de dados',
+    isNonVisual: true
+  },
   TDataSource: {
     type: 'TDataSource',
     category: 'Zeos / Firebird',
@@ -461,6 +472,7 @@ export const STANDARD_EVENTS: Record<LComponentType, string[]> = {
   TZTransaction: ['AfterCommit', 'AfterRollback', 'BeforeCommit', 'BeforeRollback'],
   TZQuery: ['AfterOpen', 'BeforeOpen', 'AfterClose', 'AfterPost', 'AfterDelete'],
   TZTable: ['AfterOpen', 'AfterPost'],
+  TZMemTable: ['AfterOpen', 'AfterPost', 'AfterDelete', 'OnNewRecord'],
   TDataSource: ['OnDataChange', 'OnUpdateData']
 };
 

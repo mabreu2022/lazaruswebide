@@ -37,7 +37,8 @@ import {
   Columns2,
   PanelLeftClose,
   FileCode,
-  ShieldCheck
+  ShieldCheck,
+  MemoryStick
 } from 'lucide-react';
 
 export const renderComponentIcon = (iconName: string, size = 16): React.ReactElement => {
@@ -80,6 +81,7 @@ export const renderComponentIcon = (iconName: string, size = 16): React.ReactEle
     case 'PanelLeftClose': return <PanelLeftClose size={size} />;
     case 'FileCode': return <FileCode size={size} />;
     case 'ShieldCheck': return <ShieldCheck size={size} />;
+    case 'MemoryStick': return <MemoryStick size={size} />;
     default: return <SquareMousePointer size={size} />;
   }
 };

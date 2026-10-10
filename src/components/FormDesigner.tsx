@@ -9,7 +9,9 @@ import {
   computeFullFormLayout,
   isContainerComponent,
   canAdoptChild,
-  getContainerPadding
+  getContainerPadding,
+  PAGE_PARENT_TYPE,
+  repairPageHierarchy
 } from '../utils/layoutEngine';
 import {
   X,
@@ -71,7 +73,8 @@ function getHierarchyDepth(id: string, components: LComponent[]): number {
 }
 
 function isComponentVisibleInHierarchy(comp: LComponent, components: LComponent[]): boolean {
-  if (comp.visible === false) return false;
+  const isPageLike = (c: LComponent) => c.type === 'TTabSheet' || c.type === 'TPage';
+  if (comp.visible === false && !isPageLike(comp)) return false;
   let currParentId = comp.parentId;
   const visited = new Set<string>();
 
@@ -81,7 +84,7 @@ function isComponentVisibleInHierarchy(comp: LComponent, components: LComponent[
 
     const parent = components.find(c => c.id === currParentId);
     if (!parent) break;
-    if (parent.visible === false) return false;
+    if (parent.visible === false && !isPageLike(parent)) return false;
 
     // Check if parent is a TabSheet inside a PageControl
     if (parent.type === 'TTabSheet' && parent.parentId) {
@@ -317,12 +320,15 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
       onSelectComponent(comp.id, isMulti);
     }
 
+    // Pages / tab sheets / splitter sides are fixed to their owner: select only, never drag or reparent
+    if (PAGE_PARENT_TYPE[comp.type]) return;
+
     const currentSelectedIds = isAlreadySelected
       ? selectedComponentIds
       : (isMulti ? [...selectedComponentIds, comp.id] : [comp.id]);
 
     const initialComps = form.components
-      .filter(c => currentSelectedIds.includes(c.id))
+      .filter(c => currentSelectedIds.includes(c.id) && !PAGE_PARENT_TYPE[c.type])
       .map(c => ({
         id: c.id,
         left: c.left,
@@ -339,6 +345,18 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
       initialComponents: initialComps
     });
   };
+
+  // Auto-repair tab sheets/pages wrongly nested inside each other (older projects / bad drops)
+  useEffect(() => {
+    const repaired = repairPageHierarchy(form.components);
+    if (repaired !== form.components) {
+      repaired.forEach((c, i) => {
+        if (c.parentId !== form.components[i].parentId) {
+          onUpdateComponent(c.id, { parentId: c.parentId });
+        }
+      });
+    }
+  }, [form.components, onUpdateComponent]);
 
   // Handle Resize Handle Mouse Down
   const handleResizeMouseDown = (e: React.MouseEvent, handle: ResizeHandle, comp: LComponent) => {
@@ -1083,9 +1101,8 @@ const ComponentRenderer: React.FC<{
                   if (onUpdateComponent) {
                     onUpdateComponent(comp.id, { activeTab: idx, activePageIndex: idx });
                   }
-                  if (tabSheets[idx] && onSelectComponent) {
-                    onSelectComponent(tabSheets[idx].id);
-                  }
+                  // Keep the PageControl selected so its Pages manager stays available in the inspector
+                  onSelectComponent?.(comp.id);
                 }}
               >
                 {tb}
@@ -1097,13 +1114,8 @@ const ComponentRenderer: React.FC<{
                 title="Adicionar Nova Aba (TTabSheet)"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const newIdx = tabNames.length + 1;
-                  onAddComponent('TTabSheet', 4, 28, comp.id);
-                  onUpdateComponent?.(comp.id, {
-                    tabs: [...tabNames, `Página ${newIdx}`],
-                    activeTab: newIdx - 1,
-                    activePageIndex: newIdx - 1
-                  });
+                  // App.handleAddComponent creates the sheet, names it and activates the new tab
+                  onAddComponent('TTabSheet', 0, 0, comp.id);
                 }}
               >
                 +
@@ -1482,6 +1494,17 @@ const ComponentRenderer: React.FC<{
           </div>
           <span className="zeos-comp-name">{comp.name}</span>
           <span className="zeos-proto-tag">Table</span>
+        </div>
+      );
+
+    case 'TZMemTable':
+      return (
+        <div className="lcl-widget lcl-zeos-component zmemtable-widget" title={`${comp.name} - Dataset em memória (ZMemTable)`}>
+          <div className="zeos-icon-box table-badge" style={{ backgroundColor: '#8b5cf6' }}>
+            {renderComponentIcon('MemoryStick', 20)}
+          </div>
+          <span className="zeos-comp-name">{comp.name}</span>
+          <span className="zeos-proto-tag">{comp.active ? 'Active' : 'Memory'}</span>
         </div>
       );
 
