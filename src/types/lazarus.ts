@@ -81,6 +81,7 @@ export interface LComponent {
   showHint?: boolean;
   tabOrder?: number;
   align?: AlignType;
+  parentId?: string; // Container component ID (e.g. TPanel)
   // Specific properties
   checked?: boolean;
   items?: string[];
@@ -119,6 +120,7 @@ export interface LComponent {
 export interface LForm {
   id: string;
   name: string;
+  unitName?: string; // 'Unit1', 'Unit2', etc.
   caption: string;
   left: number;
   top: number;
@@ -134,9 +136,11 @@ export interface LForm {
 
 export interface IDEState {
   form: LForm;
+  forms?: LForm[];
+  activeFormId?: string;
   selectedComponentIds: string[];
   activeTab: 'form' | 'code' | 'lfm' | 'project';
-  activeCodeFile: 'unit1.pas' | 'unit1.lfm' | 'project1.lpr';
+  activeCodeFile: string; // 'Unit1.pas' | 'Unit1.lfm' | 'Unit2.pas' | 'Unit2.lfm' | 'Project1.lpr'
   theme: 'lazarus-dark' | 'lazarus-classic';
   gridSize: number;
   snapToGrid: boolean;

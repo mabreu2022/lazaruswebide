@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { LForm } from '../types/lazarus';
 import { generateUnitPas, generateLFM, generateProjectLpr } from '../utils/pascalGenerator';
 import {
@@ -11,39 +11,64 @@ import {
 
 interface CodeEditorProps {
   form: LForm;
-  activeFile: 'unit1.pas' | 'unit1.lfm' | 'project1.lpr';
+  forms?: LForm[];
+  activeFile: string;
   activeEventToEdit?: { componentId: string; eventName: string; procedureName: string };
-  onChangeActiveFile: (file: 'unit1.pas' | 'unit1.lfm' | 'project1.lpr') => void;
+  onChangeActiveFile: (file: string) => void;
+  onSelectForm?: (formId: string) => void;
   onToggleFormCode: () => void;
   onUpdateEventCode?: (componentId: string | null, eventName: string, code: string) => void;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
   form,
+  forms,
   activeFile,
   activeEventToEdit,
   onChangeActiveFile,
+  onSelectForm,
   onToggleFormCode
 }) => {
   const [copied, setCopied] = useState(false);
-  const [pascalCode, setPascalCode] = useState('');
-  const [lfmCode, setLfmCode] = useState('');
-  const [lprCode, setLprCode] = useState('');
+  const [userEditedCode, setUserEditedCode] = useState<Record<string, string>>({});
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLPreElement>(null);
 
-  // Sync code whenever form changes
-  useEffect(() => {
-    setPascalCode(generateUnitPas(form));
-    setLfmCode(generateLFM(form));
-    setLprCode(generateProjectLpr(form.name));
-  }, [form]);
+  const allForms = forms && forms.length > 0 ? forms : [form];
+
+  // Resolve current active form based on activeFile
+  const currentEditingForm = React.useMemo(() => {
+    const lower = activeFile.toLowerCase();
+    for (const f of allForms) {
+      const uName = (f.unitName || 'Unit1').toLowerCase();
+      if (lower === `${uName}.pas` || lower === `${uName}.lfm`) {
+        return f;
+      }
+    }
+    return form;
+  }, [activeFile, allForms, form]);
+
+  const getCurrentCode = useCallback(() => {
+    if (userEditedCode[activeFile] !== undefined) {
+      return userEditedCode[activeFile];
+    }
+    const lower = activeFile.toLowerCase();
+    if (lower.endsWith('.lpr')) {
+      return generateProjectLpr(allForms);
+    }
+    if (lower.endsWith('.lfm')) {
+      return generateLFM(currentEditingForm);
+    }
+    return generateUnitPas(currentEditingForm);
+  }, [activeFile, allForms, currentEditingForm, userEditedCode]);
+
+  const pascalCode = getCurrentCode();
 
   // When activeEventToEdit is set, highlight/scroll to it
   useEffect(() => {
-    if (activeEventToEdit && activeFile === 'unit1.pas' && textareaRef.current) {
+    if (activeEventToEdit && activeFile.toLowerCase().endsWith('.pas') && textareaRef.current) {
       const searchTarget = `procedure T${form.name}.${activeEventToEdit.procedureName}`;
       const index = pascalCode.indexOf(searchTarget);
       if (index !== -1) {
@@ -60,12 +85,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [activeEventToEdit, activeFile, pascalCode, form.name]);
 
-  const getCurrentCode = () => {
-    if (activeFile === 'unit1.lfm') return lfmCode;
-    if (activeFile === 'project1.lpr') return lprCode;
-    return pascalCode;
-  };
-
   const handleCopy = () => {
     navigator.clipboard.writeText(getCurrentCode());
     setCopied(true);
@@ -73,11 +92,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   const handleInsertSnippet = (snippet: string) => {
-    if (!textareaRef.current || activeFile !== 'unit1.pas') return;
+    if (!textareaRef.current || !activeFile.toLowerCase().endsWith('.pas')) return;
     const start = textareaRef.current.selectionStart;
     const end = textareaRef.current.selectionEnd;
-    const updated = pascalCode.substring(0, start) + snippet + pascalCode.substring(end);
-    setPascalCode(updated);
+    const current = getCurrentCode();
+    const updated = current.substring(0, start) + snippet + current.substring(end);
+    navigator.clipboard.writeText(updated);
   };
 
   // Synchronize scrolling between textarea, line numbers gutter and syntax overlay
@@ -99,22 +119,37 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       {/* File Tabs & Actions Header */}
       <div className="code-editor-header">
         <div className="code-files-tabs">
+          {allForms.map(f => {
+            const uName = f.unitName || 'Unit1';
+            const pasFile = `${uName}.pas`.toLowerCase();
+            const lfmFile = `${uName}.lfm`.toLowerCase();
+            return (
+              <React.Fragment key={f.id}>
+                <button
+                  className={`file-tab ${activeFile.toLowerCase() === pasFile ? 'active' : ''}`}
+                  onClick={() => {
+                    onChangeActiveFile(pasFile);
+                    onSelectForm?.(f.id);
+                  }}
+                >
+                  <FileCode size={14} className="icon-pascal" />
+                  <span>{uName}.pas</span>
+                </button>
+                <button
+                  className={`file-tab ${activeFile.toLowerCase() === lfmFile ? 'active' : ''}`}
+                  onClick={() => {
+                    onChangeActiveFile(lfmFile);
+                    onSelectForm?.(f.id);
+                  }}
+                >
+                  <FolderOpen size={14} className="icon-lfm" />
+                  <span>{uName}.lfm</span>
+                </button>
+              </React.Fragment>
+            );
+          })}
           <button
-            className={`file-tab ${activeFile === 'unit1.pas' ? 'active' : ''}`}
-            onClick={() => onChangeActiveFile('unit1.pas')}
-          >
-            <FileCode size={14} className="icon-pascal" />
-            <span>Unit1.pas</span>
-          </button>
-          <button
-            className={`file-tab ${activeFile === 'unit1.lfm' ? 'active' : ''}`}
-            onClick={() => onChangeActiveFile('unit1.lfm')}
-          >
-            <FolderOpen size={14} className="icon-lfm" />
-            <span>Unit1.lfm</span>
-          </button>
-          <button
-            className={`file-tab ${activeFile === 'project1.lpr' ? 'active' : ''}`}
+            className={`file-tab ${activeFile.toLowerCase() === 'project1.lpr' ? 'active' : ''}`}
             onClick={() => onChangeActiveFile('project1.lpr')}
           >
             <FileCode size={14} className="icon-lpr" />
@@ -123,7 +158,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
 
         <div className="code-editor-actions">
-          {activeFile === 'unit1.pas' && (
+          {activeFile.toLowerCase().endsWith('.pas') && (
             <div className="quick-snippets">
               <button
                 className="snippet-btn"
@@ -132,13 +167,13 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               >
                 + ShowMessage
               </button>
-              {form.components[0] && (
+              {currentEditingForm.components[0] && (
                 <button
                   className="snippet-btn"
-                  onClick={() => handleInsertSnippet(`  ${form.components[0].name}.Caption := 'Atualizado!';\n`)}
+                  onClick={() => handleInsertSnippet(`  ${currentEditingForm.components[0].name}.Caption := 'Atualizado!';\n`)}
                   title="Inserir modificação de propriedade"
                 >
-                  + {form.components[0].name}.Caption
+                  + {currentEditingForm.components[0].name}.Caption
                 </button>
               )}
             </div>
@@ -165,7 +200,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         {/* Line Numbers Gutter (Scrolled in sync with textarea) */}
         <div ref={lineNumbersRef} className="code-line-numbers">
           <div className="line-numbers-inner">
-            {lines.map((_, i) => (
+            {lines.map((_: string, i: number) => (
               <div key={i} className="line-num">{i + 1}</div>
             ))}
             <div className="line-gutter-spacer" />
@@ -180,9 +215,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             value={getCurrentCode()}
             onScroll={handleScroll}
             onChange={(e) => {
-              if (activeFile === 'unit1.pas') setPascalCode(e.target.value);
-              else if (activeFile === 'unit1.lfm') setLfmCode(e.target.value);
-              else setLprCode(e.target.value);
+              setUserEditedCode(prev => ({ ...prev, [activeFile]: e.target.value }));
             }}
             spellCheck={false}
             autoCapitalize="none"

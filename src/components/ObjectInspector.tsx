@@ -124,15 +124,23 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
             📁 <strong>{form.name}</strong> (T{form.name})
           </div>
           <div className="tree-children">
-            {form.components.map(c => (
-              <div
-                key={c.id}
-                className={`tree-node comp-node ${selectedComponentIds.includes(c.id) ? 'active' : ''}`}
-                onClick={() => onSelectComponent(c.id)}
-              >
-                🧩 <span>{c.name}</span> <span className="tree-type">:{c.type}</span>
-              </div>
-            ))}
+            {form.components.map(c => {
+              const isChild = !!c.parentId;
+              const parentComp = isChild ? form.components.find(p => p.id === c.parentId) : null;
+              return (
+                <div
+                  key={c.id}
+                  className={`tree-node comp-node ${selectedComponentIds.includes(c.id) ? 'active' : ''} ${isChild ? 'is-child-node' : ''}`}
+                  style={{ paddingLeft: isChild ? 24 : 12 }}
+                  onClick={() => onSelectComponent(c.id)}
+                >
+                  <span>{isChild ? '↳ 📦' : '🧩'}</span>
+                  <span>{c.name}</span>
+                  <span className="tree-type">:{c.type}</span>
+                  {parentComp && <span className="tree-parent-tag">({parentComp.name})</span>}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -308,6 +316,35 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                     options={['alNone', 'alTop', 'alBottom', 'alLeft', 'alRight', 'alClient']}
                     value={selectedComp.align || 'alNone'}
                     onChange={(val) => onUpdateComponent(selectedComp.id, { align: val as AlignType })}
+                  />
+                )}
+
+                {/* Parent Container */}
+                {filterMatch('Parent', filterQuery) && (
+                  <PropertyRow
+                    label="Parent"
+                    type="select"
+                    options={[
+                      '(Form)',
+                      ...form.components
+                        .filter(c => ['TPanel', 'TGroupBox', 'TScrollBox'].includes(c.type) && c.id !== selectedComp.id)
+                        .map(c => c.name)
+                    ]}
+                    value={
+                      selectedComp.parentId
+                        ? (form.components.find(c => c.id === selectedComp.parentId)?.name || '(Form)')
+                        : '(Form)'
+                    }
+                    onChange={(val) => {
+                      if (val === '(Form)') {
+                        onUpdateComponent(selectedComp.id, { parentId: undefined });
+                      } else {
+                        const target = form.components.find(c => c.name === val);
+                        if (target) {
+                          onUpdateComponent(selectedComp.id, { parentId: target.id });
+                        }
+                      }
+                    }}
                   />
                 )}
 

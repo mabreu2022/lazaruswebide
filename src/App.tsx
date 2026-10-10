@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import JSZip from 'jszip';
 import type {
   LComponent,
   LComponentType,
@@ -15,7 +16,7 @@ import { CodeEditor } from './components/CodeEditor';
 import { BottomConsole } from './components/BottomConsole';
 import { StandaloneRunner } from './components/StandaloneRunner';
 import { getSampleProject } from './data/sampleProjects';
-import { generateUnitPas, generateLFM, generateProjectLpr } from './utils/pascalGenerator';
+import { generateUnitPas, generateLFM, generateProjectLpr, generateLPI } from './utils/pascalGenerator';
 import './App.css';
 
 const INITIAL_FORM: LForm = {
@@ -98,14 +99,38 @@ export const App: React.FC = () => {
 };
 
 const LazarusIDE: React.FC = () => {
-  const [form, setForm] = useState<LForm>(INITIAL_FORM);
-  const [history, setHistory] = useState<LForm[]>([INITIAL_FORM]);
+  const [forms, setForms] = useState<LForm[]>([
+    {
+      ...INITIAL_FORM,
+      unitName: 'Unit1'
+    }
+  ]);
+  const [activeFormId, setActiveFormId] = useState<string>(INITIAL_FORM.id);
+  const [history, setHistory] = useState<LForm[]>([
+    {
+      ...INITIAL_FORM,
+      unitName: 'Unit1'
+    }
+  ]);
   const [historyIndex, setHistoryIndex] = useState(0);
+
+  const form = forms.find(f => f.id === activeFormId) || forms[0];
+
+  const setForm = useCallback((updaterOrNew: LForm | ((prev: LForm) => LForm)) => {
+    setForms(prevForms => {
+      return prevForms.map(f => {
+        if (f.id === activeFormId) {
+          return typeof updaterOrNew === 'function' ? updaterOrNew(f) : updaterOrNew;
+        }
+        return f;
+      });
+    });
+  }, [activeFormId]);
 
   const [selectedComponentIds, setSelectedComponentIds] = useState<string[]>([]);
   const [selectedPaletteComponent, setSelectedPaletteComponent] = useState<LComponentType | null>(null);
   const [activeTab, setActiveTab] = useState<'form' | 'code' | 'lfm' | 'project'>('form');
-  const [activeCodeFile, setActiveCodeFile] = useState<'unit1.pas' | 'unit1.lfm' | 'project1.lpr'>('unit1.pas');
+  const [activeCodeFile, setActiveCodeFile] = useState<string>('unit1.pas');
   const [theme, setTheme] = useState<'lazarus-dark' | 'lazarus-classic'>('lazarus-dark');
   const [gridSize, setGridSize] = useState<number>(8);
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
@@ -132,7 +157,7 @@ const LazarusIDE: React.FC = () => {
       id: '2',
       time: new Date().toLocaleTimeString(),
       type: 'success',
-      text: 'LCL (Lazarus Component Library) Web Runtime carregado com 21 componentes nativos.'
+      text: 'LCL (Lazarus Component Library) Web Runtime carregado com suporte a múltiplos formulários e alinhamentos.'
     }
   ]);
 
@@ -177,19 +202,22 @@ const LazarusIDE: React.FC = () => {
 
   // Push new form state to history for Undo/Redo
   const pushState = useCallback((newForm: LForm) => {
+    setForms(prevForms => {
+      return prevForms.map(f => f.id === newForm.id ? newForm : f);
+    });
     setHistory(prev => {
       const trimmed = prev.slice(0, historyIndex + 1);
       return [...trimmed, newForm];
     });
     setHistoryIndex(prev => prev + 1);
-    setForm(newForm);
   }, [historyIndex]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
-      setForm(history[newIndex]);
+      const prevForm = history[newIndex];
+      setForms(prevForms => prevForms.map(f => f.id === prevForm.id ? prevForm : f));
       addConsoleLog('Desfazer executado com sucesso.', 'info');
     }
   }, [historyIndex, history, addConsoleLog]);
@@ -198,7 +226,8 @@ const LazarusIDE: React.FC = () => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
-      setForm(history[newIndex]);
+      const nextForm = history[newIndex];
+      setForms(prevForms => prevForms.map(f => f.id === nextForm.id ? nextForm : f));
       addConsoleLog('Refazer executado com sucesso.', 'info');
     }
   }, [historyIndex, history, addConsoleLog]);
@@ -213,8 +242,8 @@ const LazarusIDE: React.FC = () => {
     return `${baseName}${counter}`;
   }, []);
 
-  // Add Component to Form
-  const handleAddComponent = useCallback((type: LComponentType, x: number, y: number) => {
+  // Add Component to Form (with optional parentId for container docking)
+  const handleAddComponent = useCallback((type: LComponentType, x: number, y: number, parentId?: string) => {
     const def = COMPONENT_DEFINITIONS[type];
     const name = getNextComponentName(type, form.components);
     const newCompId = `comp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -223,6 +252,7 @@ const LazarusIDE: React.FC = () => {
       id: newCompId,
       type,
       name,
+      parentId,
       caption: def.defaultCaption !== undefined ? (def.defaultCaption || name) : undefined,
       text: type === 'TEdit' ? '' : undefined,
       placeholder: type === 'TEdit' ? name : undefined,
@@ -245,7 +275,8 @@ const LazarusIDE: React.FC = () => {
     pushState(updatedForm);
     setSelectedComponentIds([newCompId]);
     setSelectedPaletteComponent(null);
-    addConsoleLog(`Componente criado: ${name} (${type}) em [${x}, ${y}]`, 'success');
+    const parentDesc = parentId ? ` dentro de [${form.components.find(c => c.id === parentId)?.name || 'Container'}]` : '';
+    addConsoleLog(`Componente criado: ${name} (${type})${parentDesc} em [${x}, ${y}]`, 'success');
   }, [form, getNextComponentName, pushState, addConsoleLog]);
 
   // Update Component
@@ -259,7 +290,7 @@ const LazarusIDE: React.FC = () => {
       });
       return { ...prev, components: updatedComponents };
     });
-  }, []);
+  }, [setForm]);
 
   // Update Form
   const handleUpdateForm = useCallback((updates: Partial<LForm>) => {
@@ -372,34 +403,92 @@ const LazarusIDE: React.FC = () => {
     setActiveCodeFile('unit1.pas');
   }, []);
 
-  // Export Project Files
-  const handleExportProject = useCallback(() => {
-    const pasContent = generateUnitPas(form);
-    const lfmContent = generateLFM(form);
+  // Create a new Form in the project (Lazarus Multi-Form support)
+  const handleNewForm = useCallback(() => {
+    const nextNum = forms.length + 1;
+    const newId = `form_${Date.now()}`;
+    const newForm: LForm = {
+      id: newId,
+      name: `Form${nextNum}`,
+      unitName: `Unit${nextNum}`,
+      caption: `Form${nextNum}`,
+      left: Math.min(240, 60 + forms.length * 24),
+      top: Math.min(180, 40 + forms.length * 24),
+      width: 580,
+      height: 420,
+      color: '#ece9d8',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: 13,
+      events: {},
+      eventCode: {},
+      components: []
+    };
 
-    const downloadFile = (filename: string, content: string) => {
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    setForms(prev => [...prev, newForm]);
+    setActiveFormId(newId);
+    setSelectedComponentIds([]);
+    setActiveCodeFile(`unit${nextNum}.pas`.toLowerCase());
+    addConsoleLog(`[Projeto] Novo formulário criado: Form${nextNum} (${newForm.unitName}.pas / ${newForm.unitName}.lfm)`, 'success');
+  }, [forms.length, addConsoleLog]);
+
+  // Switch active form in IDE
+  const handleSwitchForm = useCallback((formId: string) => {
+    setActiveFormId(formId);
+    setSelectedComponentIds([]);
+    const target = forms.find(f => f.id === formId);
+    if (target) {
+      setActiveCodeFile(`${target.unitName || 'Unit1'}.pas`.toLowerCase());
+      addConsoleLog(`Formulário ativo: ${target.name} (${target.unitName || 'Unit1'})`, 'info');
+    }
+  }, [forms, addConsoleLog]);
+
+  // Export Project Files (ZIP with all units, LFMs, project files)
+  const handleExportProject = useCallback(async () => {
+    try {
+      const zip = new JSZip();
+
+      // 1. Project file: Project1.lpr
+      zip.file('Project1.lpr', generateProjectLpr(forms));
+
+      // 2. Project information: Project1.lpi
+      zip.file('Project1.lpi', generateLPI('Project1', forms));
+
+      // 3. For each form in project, export both .pas and .lfm
+      forms.forEach(f => {
+        const uName = f.unitName || 'Unit1';
+        zip.file(`${uName}.pas`, generateUnitPas(f));
+        zip.file(`${uName}.lfm`, generateLFM(f));
+      });
+
+      const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.download = 'LazarusWebProject.zip';
       a.click();
       URL.revokeObjectURL(url);
-    };
 
-    downloadFile('Unit1.pas', pasContent);
-    downloadFile('Unit1.lfm', lfmContent);
-    downloadFile('Project1.lpr', generateProjectLpr(form.name));
-    addConsoleLog(`Projeto exportado: Unit1.pas, Unit1.lfm e Project1.lpr gerados para download.`, 'success');
-  }, [form, addConsoleLog]);
+      addConsoleLog(`Projeto completo exportado: LazarusWebProject.zip contendo todas as units (.pas), formulários (.lfm) e arquivos de projeto (.lpr / .lpi).`, 'success');
+    } catch (err) {
+      addConsoleLog(`Erro ao gerar arquivo zip de exportação: ${String(err)}`, 'error');
+    }
+  }, [forms, addConsoleLog]);
 
   // Open sample project
   const handleOpenSample = useCallback((type: 'calc' | 'login' | 'crud' | 'firebird') => {
     const sample = getSampleProject(type);
-    pushState(sample);
+    const sampleForm: LForm = {
+      ...sample,
+      unitName: 'Unit1'
+    };
+    setForms([sampleForm]);
+    setActiveFormId(sampleForm.id);
+    setHistory([sampleForm]);
+    setHistoryIndex(0);
     setSelectedComponentIds([]);
+    setActiveCodeFile('unit1.pas');
     addConsoleLog(`Modelo de exemplo carregado: ${sample.caption}`, 'success');
-  }, [pushState, addConsoleLog]);
+  }, [addConsoleLog]);
 
   // Compile and run application in a new browser window (F9)
   const handleRun = useCallback(() => {
@@ -412,7 +501,9 @@ const LazarusIDE: React.FC = () => {
     // 3. FPC Compiler logs streamed to Messages dock
     addConsoleLog(`Free Pascal Compiler version 3.2.2 [2026/10/09] for x86_64`, 'info');
     addConsoleLog(`Copyright (c) 1993-2026 by Florian Klaempfl and others`, 'info');
-    addConsoleLog(`Compilando ${form.name}.pas ...`, 'info');
+    forms.forEach(f => {
+      addConsoleLog(`Compilando ${f.unitName || 'Unit1'}.pas (${f.name}) ...`, 'info');
+    });
     addConsoleLog(`Compilando Project1.lpr ...`, 'info');
     addConsoleLog(`Ligador: Vinculando recursos LCL Widgetset...`, 'info');
     addConsoleLog(`[Sucesso] Compilação finalizada (0 erros, 0 avisos).`, 'success');
@@ -438,7 +529,7 @@ const LazarusIDE: React.FC = () => {
     } else {
       addConsoleLog('[Aviso] Popup bloqueado pelo navegador. Por favor permita popups para este site.', 'warning');
     }
-  }, [form, addConsoleLog]);
+  }, [form, forms, addConsoleLog]);
 
   const handleStop = useCallback(() => {
     if (runnerWindowRef.current && !runnerWindowRef.current.closed) {
@@ -465,6 +556,8 @@ const LazarusIDE: React.FC = () => {
 
   const ideState: IDEState = {
     form,
+    forms,
+    activeFormId,
     selectedComponentIds,
     activeTab,
     activeCodeFile,
@@ -492,28 +585,7 @@ const LazarusIDE: React.FC = () => {
           setShowGrid(g => !g);
         }}
         onChangeGridSize={setGridSize}
-        onNewForm={() => {
-          if (confirm('Deseja iniciar um novo formulário limpo?')) {
-            const cleanForm: LForm = {
-              id: `form_${Date.now()}`,
-              name: 'Form1',
-              caption: 'Form1',
-              left: 60,
-              top: 30,
-              width: 520,
-              height: 380,
-              color: '#ece9d8',
-              fontFamily: 'Inter, sans-serif',
-              fontSize: 13,
-              events: {},
-              eventCode: {},
-              components: []
-            };
-            pushState(cleanForm);
-            setSelectedComponentIds([]);
-            addConsoleLog('Novo formulário criado.', 'info');
-          }
-        }}
+        onNewForm={handleNewForm}
         onExportProject={handleExportProject}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -546,6 +618,10 @@ const LazarusIDE: React.FC = () => {
           {activeTab === 'form' ? (
             <FormDesigner
               form={form}
+              forms={forms}
+              activeFormId={activeFormId}
+              onSwitchForm={handleSwitchForm}
+              onNewForm={handleNewForm}
               selectedComponentIds={selectedComponentIds}
               selectedPaletteComponent={selectedPaletteComponent}
               gridSize={gridSize}
@@ -566,9 +642,11 @@ const LazarusIDE: React.FC = () => {
           ) : (
             <CodeEditor
               form={form}
+              forms={forms}
               activeFile={activeCodeFile}
               activeEventToEdit={activeEventToEdit}
               onChangeActiveFile={setActiveCodeFile}
+              onSelectForm={handleSwitchForm}
               onToggleFormCode={handleToggleFormCode}
             />
           )}

@@ -16,12 +16,12 @@ export function executePascalEvent(
   context: RuntimeContext,
   senderName: string
 ): void {
-  context.log(`[Executando Evento] Disparado por: ${senderName}`, 'info');
-
   if (!code || code.trim() === '') {
-    context.showMessage(`Evento padrão de ${senderName} executado com sucesso!`);
+    // If the procedure body is empty, do nothing, exactly as in Object Pascal (begin end)
     return;
   }
+
+  context.log(`[Executando Evento] Disparado por: ${senderName}`, 'info');
 
   // Normalize code: remove 'begin' and 'end;' wrappers if present
   let cleanCode = code.trim();

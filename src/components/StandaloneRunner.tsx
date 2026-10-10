@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { LComponent, LForm } from '../types/lazarus';
 import { executePascalEvent } from '../utils/pascalRuntime';
+import { computeFullFormLayout } from '../utils/layoutEngine';
 import { Info, RotateCcw, X } from 'lucide-react';
 import '../App.css';
 
@@ -13,7 +14,7 @@ export const StandaloneRunner: React.FC = () => {
     title: 'Mensagem do Sistema'
   });
 
-  const channelRef = React.useRef<BroadcastChannel | null>(null);
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   // Send log to main IDE console
   const sendLogToIDE = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
@@ -49,10 +50,10 @@ export const StandaloneRunner: React.FC = () => {
 
         sendLogToIDE(`[Execução] Janela iniciada: ${parsedForm.name} (T${parsedForm.name})`, 'success');
 
-        // Form OnCreate event
-        if (parsedForm.events?.OnCreate) {
+        // Form OnCreate event - only if explicitly coded
+        if (parsedForm.events?.OnCreate && parsedForm.eventCode?.OnCreate?.trim()) {
           const procName = parsedForm.events.OnCreate;
-          const code = parsedForm.eventCode?.OnCreate || '';
+          const code = parsedForm.eventCode.OnCreate;
           sendLogToIDE(`[Evento] Form.OnCreate -> ${procName}`, 'info');
           executePascalEvent(
             code,
@@ -107,10 +108,15 @@ export const StandaloneRunner: React.FC = () => {
 
   const triggerEvent = (comp: LComponent, eventName: string) => {
     if (!form) return;
-    const procName = comp.events[eventName];
-    const code = comp.eventCode[eventName] || '';
+    const procName = comp.events?.[eventName];
+    const code = comp.eventCode?.[eventName];
 
-    sendLogToIDE(`[Evento] ${comp.name}.${eventName} -> ${procName || '(default)'}`, 'info');
+    // CRITICAL: Only execute if an event procedure was explicitly programmed with code!
+    if (!procName || !code || !code.trim()) {
+      return;
+    }
+
+    sendLogToIDE(`[Evento] ${comp.name}.${eventName} -> ${procName}`, 'info');
 
     executePascalEvent(
       code,
@@ -182,28 +188,45 @@ export const StandaloneRunner: React.FC = () => {
             fontFamily: form.fontFamily || 'Inter, sans-serif'
           }}
         >
-          {Object.values(componentsState).map(comp => {
-            if (!comp.visible) return null;
+          {(() => {
+            const allComps = Object.values(componentsState);
+            const layoutMap = computeFullFormLayout(allComps, form.width, form.height);
 
-            return (
-              <div
-                key={comp.id}
-                className="running-component-wrapper"
-                style={{
-                  left: `${comp.left}px`,
-                  top: `${comp.top}px`,
-                  width: `${comp.width}px`,
-                  height: `${comp.height}px`
-                }}
-              >
-                <InteractiveWidget
-                  comp={comp}
-                  onTrigger={(evt) => triggerEvent(comp, evt)}
-                  onUpdate={(updates) => handleUpdateComponent(comp.id, updates)}
-                />
-              </div>
-            );
-          })}
+            return allComps.map(comp => {
+              if (!comp.visible && !comp.isNonVisual) return null;
+              if (comp.isNonVisual) return null;
+
+              const parentRect = comp.parentId ? layoutMap.get(comp.parentId) : null;
+              const rect = layoutMap.get(comp.id) || {
+                left: comp.left,
+                top: comp.top,
+                width: comp.width,
+                height: comp.height
+              };
+
+              const displayLeft = (parentRect ? parentRect.left : 0) + rect.left;
+              const displayTop = (parentRect ? parentRect.top : 0) + rect.top;
+
+              return (
+                <div
+                  key={comp.id}
+                  className="running-component-wrapper"
+                  style={{
+                    left: `${displayLeft}px`,
+                    top: `${displayTop}px`,
+                    width: `${rect.width}px`,
+                    height: `${rect.height}px`
+                  }}
+                >
+                  <InteractiveWidget
+                    comp={comp}
+                    onTrigger={(evt) => triggerEvent(comp, evt)}
+                    onUpdate={(updates) => handleUpdateComponent(comp.id, updates)}
+                  />
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -267,9 +290,9 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, onTrigger, 
           className="run-widget run-button"
           style={{ ...fontStyle, backgroundColor: comp.color }}
           disabled={!comp.enabled}
-          onClick={() => onTrigger('OnClick')}
-          onMouseEnter={() => onTrigger('OnMouseEnter')}
-          onMouseLeave={() => onTrigger('OnMouseLeave')}
+          onClick={comp.events?.OnClick ? () => onTrigger('OnClick') : undefined}
+          onMouseEnter={comp.events?.OnMouseEnter ? () => onTrigger('OnMouseEnter') : undefined}
+          onMouseLeave={comp.events?.OnMouseLeave ? () => onTrigger('OnMouseLeave') : undefined}
         >
           {comp.type === 'TBitBtn' && <span className="glyph">✔ </span>}
           {comp.caption || comp.name}
@@ -282,7 +305,7 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, onTrigger, 
           className="run-widget run-speedbutton"
           style={fontStyle}
           disabled={!comp.enabled}
-          onClick={() => onTrigger('OnClick')}
+          onClick={comp.events?.OnClick ? () => onTrigger('OnClick') : undefined}
         >
           ⚡ {comp.caption || ''}
         </button>
@@ -293,7 +316,7 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, onTrigger, 
         <div
           className="run-widget run-label"
           style={fontStyle}
-          onClick={() => onTrigger('OnClick')}
+          onClick={comp.events?.OnClick ? () => onTrigger('OnClick') : undefined}
         >
           {comp.caption || comp.name}
         </div>

@@ -2353,3 +2353,79 @@
   50% { transform: scale(1.15); opacity: 1; }
   100% { transform: scale(0.95); opacity: 0.8; }
 }
+
+/* Multi-Form Navigation Tabs Bar in Designer */
+.designer-form-tabs-bar {
+  position: absolute;
+  top: 10px;
+  left: 40px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--bg-panel);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.designer-form-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background-color: var(--bg-panel-secondary);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.designer-form-tab:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+  border-color: var(--border-subtle);
+}
+
+.designer-form-tab.active {
+  background-color: var(--accent-blue);
+  color: #ffffff;
+  border-color: var(--accent-cyan);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+}
+
+.designer-form-tab .unit-badge {
+  font-size: 10px;
+  opacity: 0.8;
+  font-family: var(--font-code);
+}
+
+.designer-form-tab.new-form-btn {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px dashed rgba(52, 211, 153, 0.4);
+}
+
+.designer-form-tab.new-form-btn:hover {
+  background-color: rgba(16, 185, 129, 0.3);
+  color: #ffffff;
+}
+
+/* Container component wrapper styling */
+.designer-component-wrapper.is-container {
+  border-radius: 2px;
+}
+
+.tree-parent-tag {
+  color: var(--accent-cyan);
+  font-size: 9.5px;
+  background: rgba(59, 130, 246, 0.15);
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-left: 4px;
+}

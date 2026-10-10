@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type {
   LComponent,
   LComponentType,
   LForm
 } from '../types/lazarus';
 import { renderComponentIcon } from './componentIcons';
+import { computeFullFormLayout, isContainerComponent } from '../utils/layoutEngine';
 import {
   X,
   Minus,
@@ -14,11 +15,16 @@ import {
   Code,
   ArrowUp,
   ArrowDown,
-  AlignCenter
+  AlignCenter,
+  Plus
 } from 'lucide-react';
 
 interface FormDesignerProps {
   form: LForm;
+  forms?: LForm[];
+  activeFormId?: string;
+  onSwitchForm?: (formId: string) => void;
+  onNewForm?: () => void;
   selectedComponentIds: string[];
   selectedPaletteComponent: LComponentType | null;
   gridSize: number;
@@ -26,7 +32,7 @@ interface FormDesignerProps {
   showGrid: boolean;
   onSelectComponent: (id: string, isMulti?: boolean) => void;
   onSelectForm: () => void;
-  onAddComponent: (type: LComponentType, x: number, y: number) => void;
+  onAddComponent: (type: LComponentType, x: number, y: number, parentId?: string) => void;
   onUpdateComponent: (id: string, updates: Partial<LComponent>) => void;
   onUpdateForm: (updates: Partial<LForm>) => void;
   onDeleteComponents: (ids: string[]) => void;
@@ -43,7 +49,7 @@ interface DragState {
   type: 'move' | 'resize' | 'rubberband' | 'move-form' | 'resize-form';
   startX: number;
   startY: number;
-  initialComponents: { id: string; left: number; top: number; width: number; height: number }[];
+  initialComponents: { id: string; left: number; top: number; width: number; height: number; parentId?: string }[];
   initialForm?: { left: number; top: number; width: number; height: number };
   activeHandle?: ResizeHandle;
   currentX?: number;
@@ -52,6 +58,10 @@ interface DragState {
 
 export const FormDesigner: React.FC<FormDesignerProps> = ({
   form,
+  forms,
+  activeFormId,
+  onSwitchForm,
+  onNewForm,
   selectedComponentIds,
   selectedPaletteComponent,
   gridSize,
@@ -81,6 +91,39 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
     return Math.round(val / gridSize) * gridSize;
   }, [snapToGrid, gridSize]);
 
+  // Compute full hierarchical layout taking Lazarus LCL alignment and parent containers into account
+  const layoutMap = useMemo(() => {
+    return computeFullFormLayout(form.components, form.width, form.height);
+  }, [form.components, form.width, form.height]);
+
+  // Find container component at a canvas point
+  const findContainerAtPoint = useCallback((
+    canvasX: number,
+    canvasY: number,
+    excludeId?: string
+  ): LComponent | null => {
+    for (let i = form.components.length - 1; i >= 0; i--) {
+      const c = form.components[i];
+      if (c.id === excludeId) continue;
+      if (isContainerComponent(c.type)) {
+        const parentRect = c.parentId ? layoutMap.get(c.parentId) : null;
+        const rect = layoutMap.get(c.id) || { left: c.left, top: c.top, width: c.width, height: c.height };
+        const absLeft = (parentRect ? parentRect.left : 0) + rect.left;
+        const absTop = (parentRect ? parentRect.top : 0) + rect.top;
+
+        if (
+          canvasX >= absLeft &&
+          canvasX <= absLeft + rect.width &&
+          canvasY >= absTop &&
+          canvasY <= absTop + rect.height
+        ) {
+          return c;
+        }
+      }
+    }
+    return null;
+  }, [form.components, layoutMap]);
+
   // Handle Drag Over from HTML5 Drag and Drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -100,7 +143,18 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
     const x = Math.max(0, snap(rawX));
     const y = Math.max(0, snap(rawY));
 
-    onAddComponent(compType, x, y);
+    const container = findContainerAtPoint(x, y);
+    if (container) {
+      const parentRect = container.parentId ? layoutMap.get(container.parentId) : null;
+      const contRect = layoutMap.get(container.id) || container;
+      const contAbsLeft = (parentRect ? parentRect.left : 0) + contRect.left;
+      const contAbsTop = (parentRect ? parentRect.top : 0) + contRect.top;
+      const relX = Math.max(0, snap(x - contAbsLeft));
+      const relY = Math.max(0, snap(y - contAbsTop));
+      onAddComponent(compType, relX, relY, container.id);
+    } else {
+      onAddComponent(compType, x, y);
+    }
   };
 
   // Canvas Click (Placing component from click or selecting form)
@@ -118,7 +172,18 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
       const x = Math.max(0, snap(rawX));
       const y = Math.max(0, snap(rawY));
 
-      onAddComponent(selectedPaletteComponent, x, y);
+      const container = findContainerAtPoint(x, y);
+      if (container) {
+        const parentRect = container.parentId ? layoutMap.get(container.parentId) : null;
+        const contRect = layoutMap.get(container.id) || container;
+        const contAbsLeft = (parentRect ? parentRect.left : 0) + contRect.left;
+        const contAbsTop = (parentRect ? parentRect.top : 0) + contRect.top;
+        const relX = Math.max(0, snap(x - contAbsLeft));
+        const relY = Math.max(0, snap(y - contAbsTop));
+        onAddComponent(selectedPaletteComponent, relX, relY, container.id);
+      } else {
+        onAddComponent(selectedPaletteComponent, x, y);
+      }
       return;
     }
 
@@ -151,7 +216,8 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
         left: c.left,
         top: c.top,
         width: c.width,
-        height: c.height
+        height: c.height,
+        parentId: c.parentId
       }));
 
     setDragState({
@@ -239,6 +305,10 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
 
       if (dragState.type === 'move') {
         dragState.initialComponents.forEach(init => {
+          const comp = form.components.find(c => c.id === init.id);
+          // If aligned, position is controlled by layout engine, do not move unless alNone
+          if (comp?.align && comp.align !== 'alNone') return;
+
           const newLeft = Math.max(0, snap(init.left + deltaX));
           const newTop = Math.max(0, snap(init.top + deltaY));
           onUpdateComponent(init.id, { left: newLeft, top: newTop });
@@ -247,6 +317,10 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
         const init = dragState.initialComponents[0];
         if (!init) return;
 
+        const comp = form.components.find(c => c.id === init.id);
+        const compAlign = comp?.align || 'alNone';
+        if (compAlign === 'alClient') return;
+
         let newLeft = init.left;
         let newTop = init.top;
         let newWidth = init.width;
@@ -254,21 +328,35 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
 
         const handle = dragState.activeHandle;
 
-        if (handle.includes('e')) {
-          newWidth = Math.max(20, snap(init.width + deltaX));
-        }
-        if (handle.includes('s')) {
-          newHeight = Math.max(20, snap(init.height + deltaY));
-        }
-        if (handle.includes('w')) {
-          const potentialWidth = Math.max(20, snap(init.width - deltaX));
-          newLeft = init.left + (init.width - potentialWidth);
-          newWidth = potentialWidth;
-        }
-        if (handle.includes('n')) {
-          const potentialHeight = Math.max(20, snap(init.height - deltaY));
-          newTop = init.top + (init.height - potentialHeight);
-          newHeight = potentialHeight;
+        if (compAlign === 'alTop' || compAlign === 'alBottom') {
+          if (handle.includes('s')) {
+            newHeight = Math.max(20, snap(init.height + deltaY));
+          } else if (handle.includes('n')) {
+            newHeight = Math.max(20, snap(init.height - deltaY));
+          }
+        } else if (compAlign === 'alLeft' || compAlign === 'alRight') {
+          if (handle.includes('e')) {
+            newWidth = Math.max(20, snap(init.width + deltaX));
+          } else if (handle.includes('w')) {
+            newWidth = Math.max(20, snap(init.width - deltaX));
+          }
+        } else {
+          if (handle.includes('e')) {
+            newWidth = Math.max(20, snap(init.width + deltaX));
+          }
+          if (handle.includes('s')) {
+            newHeight = Math.max(20, snap(init.height + deltaY));
+          }
+          if (handle.includes('w')) {
+            const potentialWidth = Math.max(20, snap(init.width - deltaX));
+            newLeft = init.left + (init.width - potentialWidth);
+            newWidth = potentialWidth;
+          }
+          if (handle.includes('n')) {
+            const potentialHeight = Math.max(20, snap(init.height - deltaY));
+            newTop = init.top + (init.height - potentialHeight);
+            newHeight = potentialHeight;
+          }
         }
 
         onUpdateComponent(init.id, {
@@ -295,6 +383,42 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
     };
 
     const handleMouseUp = () => {
+      if (dragState && dragState.type === 'move' && dragState.initialComponents.length === 1) {
+        const init = dragState.initialComponents[0];
+        const comp = form.components.find(c => c.id === init.id);
+
+        if (comp && (!comp.align || comp.align === 'alNone')) {
+          const parentRect = comp.parentId ? layoutMap.get(comp.parentId) : null;
+          const currentAbsX = (parentRect ? parentRect.left : 0) + comp.left;
+          const currentAbsY = (parentRect ? parentRect.top : 0) + comp.top;
+          const centerX = currentAbsX + comp.width / 2;
+          const centerY = currentAbsY + comp.height / 2;
+
+          const targetContainer = findContainerAtPoint(centerX, centerY, comp.id);
+
+          if (targetContainer && targetContainer.id !== comp.parentId) {
+            const contParentRect = targetContainer.parentId ? layoutMap.get(targetContainer.parentId) : null;
+            const contRect = layoutMap.get(targetContainer.id) || targetContainer;
+            const contAbsLeft = (contParentRect ? contParentRect.left : 0) + contRect.left;
+            const contAbsTop = (contParentRect ? contParentRect.top : 0) + contRect.top;
+
+            const newRelLeft = Math.max(0, snap(currentAbsX - contAbsLeft));
+            const newRelTop = Math.max(0, snap(currentAbsY - contAbsTop));
+
+            onUpdateComponent(comp.id, {
+              parentId: targetContainer.id,
+              left: newRelLeft,
+              top: newRelTop
+            });
+          } else if (!targetContainer && comp.parentId) {
+            onUpdateComponent(comp.id, {
+              parentId: undefined,
+              left: Math.max(0, snap(currentAbsX)),
+              top: Math.max(0, snap(currentAbsY))
+            });
+          }
+        }
+      }
       setDragState(null);
     };
 
@@ -307,7 +431,7 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState, snap, onUpdateComponent, onUpdateForm]);
+  }, [dragState, snap, onUpdateComponent, onUpdateForm, form.components, layoutMap, findContainerAtPoint]);
 
   // Context Menu Handler
   const handleContextMenu = (e: React.MouseEvent, componentId?: string) => {
@@ -353,7 +477,7 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
 
           selectedComponentIds.forEach(id => {
             const comp = form.components.find(c => c.id === id);
-            if (comp) {
+            if (comp && (!comp.align || comp.align === 'alNone')) {
               onUpdateComponent(id, {
                 left: Math.max(0, comp.left + dx),
                 top: Math.max(0, comp.top + dy)
@@ -385,6 +509,30 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
       className={`lazarus-designer-workspace ${selectedPaletteComponent ? 'placement-mode' : ''}`}
       onClick={() => setContextMenu(null)}
     >
+      {/* Multi-Form Navigation Tabs (Lazarus Project Forms) */}
+      <div className="designer-form-tabs-bar">
+        {forms && forms.map(f => (
+          <button
+            key={f.id}
+            className={`designer-form-tab ${f.id === (activeFormId || form.id) ? 'active' : ''}`}
+            onClick={() => onSwitchForm?.(f.id)}
+          >
+            <span className="tab-icon">🗂️</span>
+            <span className="tab-name">{f.name}</span>
+            <span className="tab-unit">({f.unitName || 'Unit1'}.pas)</span>
+          </button>
+        ))}
+        {onNewForm && (
+          <button
+            className="designer-form-tab new-form-btn"
+            onClick={onNewForm}
+            title="Criar Novo Formulário (Ctrl+N)"
+          >
+            <Plus size={12} /> Novo Form
+          </button>
+        )}
+      </div>
+
       {/* Visual Form Window (Delphi / Lazarus Desktop Form) */}
       <div
         className="lazarus-form-window"
@@ -435,18 +583,28 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
           {/* Render All Form Components */}
           {form.components.map(comp => {
             const isSelected = selectedComponentIds.includes(comp.id);
+            const parentRect = comp.parentId ? layoutMap.get(comp.parentId) : null;
+            const rect = layoutMap.get(comp.id) || {
+              left: comp.left,
+              top: comp.top,
+              width: comp.width,
+              height: comp.height
+            };
+            const displayLeft = (parentRect ? parentRect.left : 0) + rect.left;
+            const displayTop = (parentRect ? parentRect.top : 0) + rect.top;
+            const isContainer = isContainerComponent(comp.type);
 
             return (
               <div
                 key={comp.id}
                 id={`comp-${comp.id}`}
-                className={`designer-component-wrapper ${isSelected ? 'selected' : ''}`}
+                className={`designer-component-wrapper ${isSelected ? 'selected' : ''} ${isContainer ? 'is-container' : ''}`}
                 style={{
-                  left: `${comp.left}px`,
-                  top: `${comp.top}px`,
-                  width: `${comp.width}px`,
-                  height: `${comp.height}px`,
-                  zIndex: isSelected ? 50 : 1
+                  left: `${displayLeft}px`,
+                  top: `${displayTop}px`,
+                  width: `${rect.width}px`,
+                  height: `${rect.height}px`,
+                  zIndex: isSelected ? 50 : (isContainer ? 2 : 10)
                 }}
                 onMouseDown={(e) => handleComponentMouseDown(e, comp)}
                 onDoubleClick={(e) => {
@@ -458,21 +616,39 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
                 {/* Component Render */}
                 <ComponentRenderer comp={comp} />
 
-                {/* 8 Selection Handles if selected */}
+                {/* Selection Handles if selected */}
                 {isSelected && (
                   <div className="selection-handles-layer">
-                    <div className="sel-handle nw" onMouseDown={(e) => handleResizeMouseDown(e, 'nw', comp)} />
-                    <div className="sel-handle n" onMouseDown={(e) => handleResizeMouseDown(e, 'n', comp)} />
-                    <div className="sel-handle ne" onMouseDown={(e) => handleResizeMouseDown(e, 'ne', comp)} />
-                    <div className="sel-handle e" onMouseDown={(e) => handleResizeMouseDown(e, 'e', comp)} />
-                    <div className="sel-handle se" onMouseDown={(e) => handleResizeMouseDown(e, 'se', comp)} />
-                    <div className="sel-handle s" onMouseDown={(e) => handleResizeMouseDown(e, 's', comp)} />
-                    <div className="sel-handle sw" onMouseDown={(e) => handleResizeMouseDown(e, 'sw', comp)} />
-                    <div className="sel-handle w" onMouseDown={(e) => handleResizeMouseDown(e, 'w', comp)} />
+                    {comp.align !== 'alClient' && (
+                      <>
+                        {(!comp.align || comp.align === 'alNone') && (
+                          <>
+                            <div className="sel-handle nw" onMouseDown={(e) => handleResizeMouseDown(e, 'nw', comp)} />
+                            <div className="sel-handle ne" onMouseDown={(e) => handleResizeMouseDown(e, 'ne', comp)} />
+                            <div className="sel-handle sw" onMouseDown={(e) => handleResizeMouseDown(e, 'sw', comp)} />
+                            <div className="sel-handle se" onMouseDown={(e) => handleResizeMouseDown(e, 'se', comp)} />
+                          </>
+                        )}
+                        {(!comp.align || comp.align === 'alNone' || comp.align === 'alTop' || comp.align === 'alBottom') && (
+                          <>
+                            <div className="sel-handle n" onMouseDown={(e) => handleResizeMouseDown(e, 'n', comp)} />
+                            <div className="sel-handle s" onMouseDown={(e) => handleResizeMouseDown(e, 's', comp)} />
+                          </>
+                        )}
+                        {(!comp.align || comp.align === 'alNone' || comp.align === 'alLeft' || comp.align === 'alRight') && (
+                          <>
+                            <div className="sel-handle w" onMouseDown={(e) => handleResizeMouseDown(e, 'w', comp)} />
+                            <div className="sel-handle e" onMouseDown={(e) => handleResizeMouseDown(e, 'e', comp)} />
+                          </>
+                        )}
+                      </>
+                    )}
 
                     {/* Dimensions & coordinates tooltip */}
                     <div className="component-dimensions-badge">
-                      {comp.name} [{comp.left}, {comp.top} - {comp.width}x{comp.height}]
+                      {comp.name} [{Math.round(rect.left)}, {Math.round(rect.top)} - {Math.round(rect.width)}x{Math.round(rect.height)}]
+                      {comp.align && comp.align !== 'alNone' ? ` • ${comp.align}` : ''}
+                      {comp.parentId ? ` • Parent: ${form.components.find(c => c.id === comp.parentId)?.name || 'Panel'}` : ''}
                     </div>
                   </div>
                 )}
