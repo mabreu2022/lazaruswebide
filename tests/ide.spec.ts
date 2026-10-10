@@ -294,9 +294,12 @@ test('Deploy & Publicação: abre modal, compila, publica na nuvem da IDE com li
   await copyBtn.click();
   await expect(copyBtn).toContainText('Copiado!');
 
-  // 8. Iframe de Preview ao vivo deve estar carregado
+  // 8. Iframe de Preview ao vivo deve estar carregado com a aplicação autônoma (não a IDE)
   const iframe = page.locator('.deploy-preview-iframe');
   await expect(iframe).toBeVisible();
+  const frameContent = iframe.contentFrame();
+  await expect(frameContent.locator('#form-window-container')).toBeVisible();
+  await expect(frameContent.locator('.lazarus-topbar')).toHaveCount(0);
 
   // 9. Alterna para aba Exportar Pacote (.ZIP)
   await page.locator('.deploy-tab-btn', { hasText: 'Exportar Pacote (.ZIP)' }).click();

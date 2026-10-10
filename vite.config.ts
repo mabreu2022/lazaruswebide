@@ -85,12 +85,23 @@ function lazarusDeployPlugin(): Plugin {
         const appMatch = url.match(/^\/(?:apps|deployments)\/([^/?#]+)(\/.*)?$/);
         if (req.method === 'GET' && appMatch) {
           const projectId = appMatch[1];
-          let subPath = appMatch[2] || '/index.html';
-          if (subPath === '/' || !subPath) subPath = '/index.html';
+          const rawSubPath = appMatch[2];
 
-          // Sanitize path to prevent directory traversal
-          const safeSubPath = path.normalize(subPath).replace(/^(\.\.[\/\\])+/, '');
-          const filePath = path.resolve(process.cwd(), 'deployments', projectId, safeSubPath.startsWith('/') ? safeSubPath.slice(1) : safeSubPath);
+          // Se a rota for apenas /apps/:projectId ou /apps/:projectId/, redireciona explicitamente para /index.html
+          if (!rawSubPath || rawSubPath === '/') {
+            res.writeHead(302, { Location: `/apps/${projectId}/index.html` });
+            res.end();
+            return;
+          }
+
+          // Remove query params, hash e barras iniciais de forma agnóstica a SO (Windows backslash e Unix slash)
+          const cleanSub = rawSubPath
+            .split('?')[0]
+            .split('#')[0]
+            .replace(/^[/\\]+/, '')
+            .replace(/\.\.[/\\]/g, '') || 'index.html';
+
+          const filePath = path.join(process.cwd(), 'deployments', projectId, cleanSub);
 
           if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
             const ext = path.extname(filePath).toLowerCase();
@@ -101,12 +112,23 @@ function lazarusDeployPlugin(): Plugin {
               '.json': 'application/json; charset=utf-8',
               '.png': 'image/png',
               '.jpg': 'image/jpeg',
-              '.svg': 'image/svg+xml'
+              '.svg': 'image/svg+xml',
+              '.ico': 'image/x-icon',
+              '.pas': 'text/plain; charset=utf-8',
+              '.lfm': 'text/plain; charset=utf-8',
+              '.lpr': 'text/plain; charset=utf-8'
             };
             res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain; charset=utf-8');
             res.statusCode = 200;
             const content = fs.readFileSync(filePath);
             res.end(content);
+            return;
+          } else {
+            // Se a URL pertence a /apps/ ou /deployments/ mas o arquivo não existe,
+            // NÃO chamamos next() para evitar que o Vite sirva a IDE (fallback SPA root)
+            res.statusCode = 404;
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.end(`<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0f172a;color:#f8fafc;padding:3rem;"><h2>404 - Aplicação ou Arquivo Não Encontrado</h2><p>O arquivo <code>${cleanSub}</code> não foi localizado na publicação do projeto <code>${projectId}</code>.</p><p><a href="/" style="color:#38bdf8;">Voltar para o Lazarus Web IDE</a></p></body></html>`);
             return;
           }
         }
