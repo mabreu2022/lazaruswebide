@@ -306,6 +306,17 @@ export const COMPONENT_DEFINITIONS: Record<LComponentType, LComponentDefinition>
     iconName: 'FileCode',
     description: 'Página individual de um TNotebook'
   },
+  TImageList: {
+    type: 'TImageList',
+    category: 'Common Controls',
+    defaultName: 'ImageList',
+    defaultCaption: '',
+    defaultWidth: 36,
+    defaultHeight: 36,
+    iconName: 'Images',
+    description: 'Lista de imagens e ícones para botões, menus e outros controles',
+    isNonVisual: true
+  },
 
   // Dialogs
   TOpenDialog: {
@@ -463,6 +474,7 @@ export const STANDARD_EVENTS: Record<LComponentType, string[]> = {
   TTrackBar: ['OnChange'],
   TStatusBar: ['OnClick'],
   TPageControl: ['OnChange'],
+  TImageList: ['OnChange'],
   TOpenDialog: ['OnClose'],
   TSaveDialog: ['OnClose'],
   TDBGrid: ['OnCellClick', 'OnDblClick'],

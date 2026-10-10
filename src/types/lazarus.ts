@@ -41,6 +41,7 @@ export type LComponentType =
   | 'TTabSheet'
   | 'TNotebook'
   | 'TPage'
+  | 'TImageList'
   // Dialogs
   | 'TOpenDialog'
   | 'TSaveDialog'
@@ -132,6 +133,12 @@ export interface LComponent {
   stretch?: boolean;          // Stretch image to fill TImage (TImage)
   proportional?: boolean;     // Maintain aspect ratio (TImage)
   center?: boolean;           // Center image within control (TImage)
+  // TImageList properties & linked image properties
+  imagesList?: string[];      // Array of images in TImageList (data URLs or URLs)
+  imageWidth?: number;        // Individual image width in TImageList (e.g. 16, 24, 32)
+  imageHeight?: number;       // Individual image height in TImageList (e.g. 16, 24, 32)
+  images?: string;            // Reference to TImageList name for TButton / TBitBtn / TSpeedButton
+  imageIndex?: number;        // Index of the image in the referenced TImageList
   tabs?: string[];
   activeTab?: number;
   activePageIndex?: number;

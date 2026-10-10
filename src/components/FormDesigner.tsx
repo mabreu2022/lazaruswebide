@@ -920,6 +920,13 @@ const ComponentRenderer: React.FC<{
     fontStyle: comp.fontItalic ? 'italic' : 'normal'
   };
 
+  const boundImg = useMemo(() => {
+    if (!comp.images || !form) return null;
+    const list = form.components.find(c => c.name === comp.images && c.type === 'TImageList');
+    if (!list || !list.imagesList || comp.imageIndex === undefined) return null;
+    return list.imagesList[comp.imageIndex] || null;
+  }, [comp.images, comp.imageIndex, form]);
+
   switch (comp.type) {
     case 'TButton':
       return (
@@ -928,7 +935,8 @@ const ComponentRenderer: React.FC<{
           style={{ ...fontStyle, backgroundColor: comp.color || undefined }}
           disabled={!comp.enabled}
         >
-          {comp.caption || comp.name}
+          {boundImg && <img src={boundImg} alt="" className="lcl-button-img" />}
+          <span>{comp.caption || comp.name}</span>
         </button>
       );
 
@@ -1289,7 +1297,7 @@ const ComponentRenderer: React.FC<{
     case 'TBitBtn':
       return (
         <button className="lcl-widget lcl-bitbtn" style={fontStyle}>
-          <span className="btn-glyph">✔</span>
+          {boundImg ? <img src={boundImg} alt="" className="lcl-button-img" /> : <span className="btn-glyph">✔</span>}
           <span>{comp.caption || comp.name}</span>
         </button>
       );
@@ -1297,7 +1305,8 @@ const ComponentRenderer: React.FC<{
     case 'TSpeedButton':
       return (
         <button className="lcl-widget lcl-speedbutton" style={fontStyle}>
-          ⚡ {comp.caption || ''}
+          {boundImg ? <img src={boundImg} alt="" className="lcl-button-img" /> : '⚡ '}
+          <span>{comp.caption || ''}</span>
         </button>
       );
 
@@ -1397,6 +1406,19 @@ const ComponentRenderer: React.FC<{
           <span className="dialog-name">{comp.name}</span>
         </div>
       );
+
+    case 'TImageList': {
+      const count = comp.imagesList?.length ?? 0;
+      return (
+        <div className="lcl-widget lcl-imagelist-component" title={`${comp.name} - TImageList (${count} imagens)`}>
+          <div className="imagelist-icon-box">
+            {renderComponentIcon('Images', 20)}
+          </div>
+          <span className="imagelist-comp-name">{comp.name}</span>
+          <span className="imagelist-badge">{count} img</span>
+        </div>
+      );
+    }
 
     case 'TDBGrid':
       return (

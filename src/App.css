@@ -3665,3 +3665,155 @@
 .page-chip.active { background: rgba(56,189,248,0.18); border-color: #38bdf8; color: #f0f9ff; font-weight: 600; }
 .pages-actions { display: flex; gap: 4px; }
 .pages-actions button:disabled { opacity: .4; cursor: not-allowed; }
+
+/* TImageList Component & Button Image Support */
+.lcl-imagelist-component {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px dashed #0284c7;
+  border-radius: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 2px;
+  user-select: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.imagelist-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0284c7;
+}
+
+.imagelist-comp-name {
+  font-size: 9px;
+  font-weight: 600;
+  color: #0369a1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.imagelist-badge {
+  font-size: 8px;
+  background: #0284c7;
+  color: #ffffff;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.lcl-button-img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  margin-right: 4px;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+/* Object Inspector TImageList Manager */
+.prop-imagelist-row {
+  align-items: flex-start !important;
+}
+
+.imagelist-manager-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.imagelist-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: var(--bg-input, #0f172a);
+  border: 1px solid var(--border-subtle, #334155);
+  border-radius: 4px;
+  padding: 6px;
+  min-height: 52px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.imagelist-empty {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+  padding: 8px 4px;
+  width: 100%;
+  text-align: center;
+}
+
+.imagelist-chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  padding: 3px;
+  width: 54px;
+}
+
+.img-idx {
+  font-size: 9px;
+  color: #38bdf8;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.imagelist-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  background: #0f172a;
+  border-radius: 2px;
+  border: 1px solid #334155;
+}
+
+.imagelist-thumb-actions {
+  display: flex;
+  gap: 2px;
+  margin-top: 3px;
+}
+
+.img-order-btn {
+  background: #334155;
+  color: #cbd5e1;
+  border: none;
+  border-radius: 2px;
+  font-size: 8px;
+  padding: 1px 3px;
+  cursor: pointer;
+}
+
+.img-order-btn:hover {
+  background: #475569;
+  color: #ffffff;
+}
+
+.img-order-btn.img-del-btn {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.img-order-btn.img-del-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.imagelist-controls-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+

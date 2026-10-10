@@ -11,11 +11,13 @@ export function generateUnitPas(form: LForm): string {
   const hasZeos = form.components.some(c => c.type.startsWith('TZ'));
   const hasDB = form.components.some(c => c.type.startsWith('TDB') || c.type === 'TDataSource');
   const hasPairSplitter = form.components.some(c => c.type.startsWith('TPairSplitter'));
+  const hasImageList = form.components.some(c => c.type === 'TImageList');
 
   const extraUses = [];
   if (hasDB) extraUses.push('DB');
   if (hasZeos) extraUses.push('ZConnection', 'ZDataset', 'ZAbstractRODataset', 'ZTransaction', 'ZMemTable');
   if (hasPairSplitter) extraUses.push('PairSplitter');
+  if (hasImageList) extraUses.push('ImgList');
 
   // Collect event procedures
   const eventSignatures: string[] = [];
@@ -268,6 +270,22 @@ function generateSingleComponentLFM(comp: LComponent, form: LForm, indent: strin
     if (comp.dataSourceName) lines.push(`${indent}  DataSource = ${comp.dataSourceName}`);
     if (comp.type === 'TDBEdit' && comp.dataField) {
       lines.push(`${indent}  DataField = '${comp.dataField}'`);
+    }
+  }
+
+  // TImageList properties
+  if (comp.type === 'TImageList') {
+    const count = comp.imagesList?.length || 0;
+    lines.push(`${indent}  AllocBy = ${Math.max(4, count)}`);
+    lines.push(`${indent}  Height = ${comp.imageHeight || 16}`);
+    lines.push(`${indent}  Width = ${comp.imageWidth || 16}`);
+  }
+
+  // Linked TImageList for buttons / controls
+  if (comp.images) {
+    lines.push(`${indent}  Images = ${comp.images}`);
+    if (comp.imageIndex !== undefined) {
+      lines.push(`${indent}  ImageIndex = ${comp.imageIndex}`);
     }
   }
 

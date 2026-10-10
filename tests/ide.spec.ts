@@ -92,3 +92,17 @@ test('Containers: componente solto no Panel vira filho, acompanha o pai e é exc
   await expect(page.locator('[data-comp-name="Panel1"]')).toHaveCount(0);
   await expect(page.locator('[data-comp-name="Button2"]')).toHaveCount(0);
 });
+
+test('TImageList: existe em Common Controls, pode ser adicionado e inspecionado', async ({ page }) => {
+  await placeFromPalette(page, 'Common Controls', 'ImageList', 120, 120);
+  const imgList = page.locator('[data-comp-name="ImageList1"]');
+  await expect(imgList).toBeVisible();
+  await expect(imgList.locator('.imagelist-badge')).toHaveText('0 img');
+
+  // Seleciona o ImageList e verifica propriedades no Inspetor
+  await imgList.click();
+  await expect(page.locator('.prop-label-col', { hasText: 'ImageWidth' })).toBeVisible();
+  await expect(page.locator('.prop-label-col', { hasText: 'ImageHeight' })).toBeVisible();
+  await expect(page.locator('.prop-label-col', { hasText: 'Images' })).toBeVisible();
+});
+

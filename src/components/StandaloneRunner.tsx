@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { LComponent, LForm } from '../types/lazarus';
 import { executePascalEvent } from '../utils/pascalRuntime';
 import { computeFullFormLayout } from '../utils/layoutEngine';
@@ -378,6 +378,13 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, allComps, o
     fontStyle: comp.fontItalic ? 'italic' : 'normal'
   };
 
+  const boundImg = useMemo(() => {
+    if (!comp.images) return null;
+    const list = allComps.find(c => c.name === comp.images && c.type === 'TImageList');
+    if (!list || !list.imagesList || comp.imageIndex === undefined) return null;
+    return list.imagesList[comp.imageIndex] || null;
+  }, [comp.images, comp.imageIndex, allComps]);
+
   switch (comp.type) {
     case 'TButton':
     case 'TBitBtn':
@@ -390,8 +397,9 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, allComps, o
           onMouseEnter={comp.events?.OnMouseEnter ? () => onTrigger('OnMouseEnter') : undefined}
           onMouseLeave={comp.events?.OnMouseLeave ? () => onTrigger('OnMouseLeave') : undefined}
         >
-          {comp.type === 'TBitBtn' && <span className="glyph">✔ </span>}
-          {comp.caption || comp.name}
+          {boundImg && <img src={boundImg} alt="" className="lcl-button-img" />}
+          {!boundImg && comp.type === 'TBitBtn' && <span className="glyph">✔ </span>}
+          <span>{comp.caption || comp.name}</span>
         </button>
       );
 
@@ -403,7 +411,8 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, allComps, o
           disabled={!comp.enabled}
           onClick={comp.events?.OnClick ? () => onTrigger('OnClick') : undefined}
         >
-          ⚡ {comp.caption || ''}
+          {boundImg ? <img src={boundImg} alt="" className="lcl-button-img" /> : '⚡ '}
+          <span>{comp.caption || ''}</span>
         </button>
       );
 

@@ -982,6 +982,157 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                     )}
                   </>
                 )}
+
+                {/* TImageList Properties */}
+                {selectedComp.type === 'TImageList' && (
+                  <>
+                    {filterMatch('ImageWidth', filterQuery) && (
+                      <PropertyRow
+                        label="ImageWidth"
+                        type="number"
+                        value={selectedComp.imageWidth ?? 16}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { imageWidth: Math.max(8, Number(val)) })}
+                      />
+                    )}
+                    {filterMatch('ImageHeight', filterQuery) && (
+                      <PropertyRow
+                        label="ImageHeight"
+                        type="number"
+                        value={selectedComp.imageHeight ?? 16}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { imageHeight: Math.max(8, Number(val)) })}
+                      />
+                    )}
+                    {filterMatch('Images', filterQuery) && (
+                      <div className="property-row prop-imagelist-row" data-label="Images">
+                        <div className="prop-label-col" title="Images (Coleção)">
+                          <span>Images ({selectedComp.imagesList?.length ?? 0})</span>
+                        </div>
+                        <div className="prop-value-col imagelist-manager-col">
+                          <div className="imagelist-gallery">
+                            {(!selectedComp.imagesList || selectedComp.imagesList.length === 0) ? (
+                              <div className="imagelist-empty">Nenhuma imagem carregada</div>
+                            ) : (
+                              selectedComp.imagesList.map((img, idx) => (
+                                <div key={idx} className="imagelist-chip" title={`Índice [${idx}]`}>
+                                  <span className="img-idx">[{idx}]</span>
+                                  <img src={img} alt={`idx-${idx}`} className="imagelist-thumb" />
+                                  <div className="imagelist-thumb-actions">
+                                    {idx > 0 && (
+                                      <button
+                                        type="button"
+                                        className="img-order-btn"
+                                        title="Mover para esquerda"
+                                        onClick={() => {
+                                          const list = [...(selectedComp.imagesList || [])];
+                                          const temp = list[idx - 1];
+                                          list[idx - 1] = list[idx];
+                                          list[idx] = temp;
+                                          onUpdateComponent(selectedComp.id, { imagesList: list });
+                                        }}
+                                      >
+                                        ◀
+                                      </button>
+                                    )}
+                                    {idx < ((selectedComp.imagesList?.length ?? 0) - 1) && (
+                                      <button
+                                        type="button"
+                                        className="img-order-btn"
+                                        title="Mover para direita"
+                                        onClick={() => {
+                                          const list = [...(selectedComp.imagesList || [])];
+                                          const temp = list[idx + 1];
+                                          list[idx + 1] = list[idx];
+                                          list[idx] = temp;
+                                          onUpdateComponent(selectedComp.id, { imagesList: list });
+                                        }}
+                                      >
+                                        ▶
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="img-order-btn img-del-btn"
+                                      title="Remover imagem"
+                                      onClick={() => {
+                                        const list = (selectedComp.imagesList || []).filter((_, i) => i !== idx);
+                                        onUpdateComponent(selectedComp.id, { imagesList: list });
+                                      }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                          <div className="imagelist-controls-bar">
+                            <label className="prop-file-btn" title="Adicionar arquivo(s) de imagem">
+                              <span>+ Adicionar Imagens...</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files || []);
+                                  if (files.length === 0) return;
+                                  let loadedCount = 0;
+                                  const newUrls: string[] = [];
+                                  files.forEach((file, fIdx) => {
+                                    const reader = new FileReader();
+                                    reader.onload = (re) => {
+                                      newUrls[fIdx] = re.target?.result as string;
+                                      loadedCount++;
+                                      if (loadedCount === files.length) {
+                                        const combined = [...(selectedComp.imagesList || []), ...newUrls.filter(Boolean)];
+                                        onUpdateComponent(selectedComp.id, { imagesList: combined });
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  });
+                                }}
+                              />
+                            </label>
+                            {selectedComp.imagesList && selectedComp.imagesList.length > 0 && (
+                              <button
+                                type="button"
+                                className="prop-btn-clear"
+                                style={{ padding: '2px 8px', fontSize: '11px' }}
+                                onClick={() => onUpdateComponent(selectedComp.id, { imagesList: [] })}
+                                title="Limpar todas as imagens"
+                              >
+                                Limpar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Images & ImageIndex binding for Buttons / BitBtns / SpeedButtons */}
+                {['TButton', 'TBitBtn', 'TSpeedButton'].includes(selectedComp.type) && (
+                  <>
+                    {filterMatch('Images', filterQuery) && (
+                      <PropertyRow
+                        label="Images"
+                        type="select"
+                        options={['(Nenhum)', ...form.components.filter(c => c.type === 'TImageList').map(c => c.name)]}
+                        value={selectedComp.images || '(Nenhum)'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { images: val === '(Nenhum)' ? undefined : String(val) })}
+                      />
+                    )}
+                    {selectedComp.images && filterMatch('ImageIndex', filterQuery) && (
+                      <PropertyRow
+                        label="ImageIndex"
+                        type="number"
+                        value={selectedComp.imageIndex ?? 0}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { imageIndex: Math.max(0, Number(val)) })}
+                      />
+                    )}
+                  </>
+                )}
               </>
             )}
 
