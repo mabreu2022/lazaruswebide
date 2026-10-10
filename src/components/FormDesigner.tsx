@@ -251,6 +251,7 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
   // Handle Form Move Mouse Down (via title bar)
   const handleFormHeaderMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    e.preventDefault();
     onSelectForm();
 
     setDragState({
@@ -269,8 +270,10 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
 
   // Handle Form Resize Handle Mouse Down
   const handleFormResizeMouseDown = (e: React.MouseEvent, handle: ResizeHandle) => {
+    e.preventDefault();
     e.stopPropagation();
     if (e.button !== 0) return;
+    onSelectForm();
 
     setDragState({
       type: 'resize-form',
@@ -299,6 +302,11 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
       }
 
       if (!dragState) return;
+
+      if (e.buttons === 0) {
+        setDragState(null);
+        return;
+      }
 
       const deltaX = e.clientX - dragState.startX;
       const deltaY = e.clientY - dragState.startY;

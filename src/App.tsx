@@ -16,7 +16,6 @@ import { CodeEditor } from './components/CodeEditor';
 import { BottomConsole } from './components/BottomConsole';
 import { StandaloneRunner } from './components/StandaloneRunner';
 import { ProjectInspector } from './components/ProjectInspector';
-import { Sliders, FolderOpen } from 'lucide-react';
 import { getSampleProject } from './data/sampleProjects';
 import { generateUnitPas, generateLFM, generateProjectLpr, generateLPI } from './utils/pascalGenerator';
 import './App.css';
@@ -137,7 +136,7 @@ const LazarusIDE: React.FC = () => {
     'unit1.pas',
     'unit1.lfm'
   ]);
-  const [leftDockTab, setLeftDockTab] = useState<'inspector' | 'project'>('inspector');
+  const [isProjectInspectorOpen, setIsProjectInspectorOpen] = useState<boolean>(true);
   const [isProjectInspectorFloating, setIsProjectInspectorFloating] = useState<boolean>(false);
   const [theme, setTheme] = useState<'lazarus-dark' | 'lazarus-classic'>('lazarus-dark');
   const [gridSize, setGridSize] = useState<number>(8);
@@ -302,8 +301,10 @@ const LazarusIDE: React.FC = () => {
 
   // Update Form
   const handleUpdateForm = useCallback((updates: Partial<LForm>) => {
-    setForm(prev => ({ ...prev, ...updates }));
-  }, []);
+    setForms(prevForms =>
+      prevForms.map(f => (f.id === activeFormId ? { ...f, ...updates } : f))
+    );
+  }, [activeFormId]);
 
   // Delete Components
   const handleDeleteComponents = useCallback((ids: string[]) => {
@@ -657,7 +658,7 @@ const LazarusIDE: React.FC = () => {
     addConsoleLog('[Execução] Processo finalizado pelo usuário na IDE (Stop).', 'info');
   }, [addConsoleLog]);
 
-  // Global F9, F12, F11, Ctrl+F11 keyboard shortcuts
+  // Global F9, F12, Ctrl+F11 keyboard shortcuts
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.key === 'F9') {
@@ -668,10 +669,7 @@ const LazarusIDE: React.FC = () => {
         handleToggleFormCode();
       } else if (e.ctrlKey && e.key === 'F11') {
         e.preventDefault();
-        setLeftDockTab(t => t === 'project' ? 'inspector' : 'project');
-      } else if (!e.ctrlKey && e.key === 'F11') {
-        e.preventDefault();
-        setLeftDockTab('inspector');
+        setIsProjectInspectorOpen(open => !open);
       }
     };
     window.addEventListener('keydown', handleGlobalShortcuts);
@@ -717,9 +715,9 @@ const LazarusIDE: React.FC = () => {
         canRedo={historyIndex < history.length - 1}
         onOpenSample={handleOpenSample}
         onToggleProjectInspector={() => {
-          setLeftDockTab(t => t === 'project' ? 'inspector' : 'project');
+          setIsProjectInspectorOpen(open => !open);
         }}
-        isProjectInspectorOpen={leftDockTab === 'project' || isProjectInspectorFloating}
+        isProjectInspectorOpen={isProjectInspectorOpen}
       />
 
       {/* Component Palette (Categorized Tabs & Controls) */}
@@ -728,74 +726,18 @@ const LazarusIDE: React.FC = () => {
         onSelectComponentType={setSelectedPaletteComponent}
       />
 
-      {/* Main Workspace (Object Inspector / Project Inspector on Left, Designer/Code in Center) */}
+      {/* Main Workspace (Left: Object Inspector | Center: Designer/Code | Right: Project Inspector) */}
       <div className="lazarus-workspace-body">
-        {/* Left Dock Panel: Tabs between Object Inspector & Project Inspector */}
-        <aside className="lazarus-left-dock-panel">
-          <div className="left-dock-tabs-header">
-            <button
-              className={`dock-tab-btn ${leftDockTab === 'inspector' ? 'active' : ''}`}
-              onClick={() => setLeftDockTab('inspector')}
-              title="Inspetor de Objetos (F11)"
-            >
-              <Sliders size={13} />
-              <span>Inspetor de Objetos</span>
-            </button>
-            <button
-              className={`dock-tab-btn ${leftDockTab === 'project' ? 'active' : ''}`}
-              onClick={() => setLeftDockTab('project')}
-              title="Inspetor de Projetos (Ctrl+F11)"
-            >
-              <FolderOpen size={13} />
-              <span>Inspetor de Projetos</span>
-              <span className="dock-count-badge">{forms.length}</span>
-            </button>
-          </div>
-
-          <div className="left-dock-content">
-            {leftDockTab === 'inspector' ? (
-              <ObjectInspector
-                form={form}
-                selectedComponentIds={selectedComponentIds}
-                onSelectComponent={handleSelectComponent}
-                onSelectForm={handleSelectForm}
-                onUpdateComponent={handleUpdateComponent}
-                onUpdateForm={handleUpdateForm}
-                onOpenEventHandler={handleOpenEventHandler}
-              />
-            ) : (
-              <ProjectInspector
-                forms={forms}
-                activeFormId={activeFormId}
-                onSelectForm={handleSwitchForm}
-                onOpenCodeFile={handleOpenCodeFile}
-                onNewForm={handleNewForm}
-                onRemoveForm={handleRemoveForm}
-                isFloating={false}
-                onToggleFloat={() => setIsProjectInspectorFloating(true)}
-              />
-            )}
-          </div>
-        </aside>
-
-        {/* Floating Project Inspector Window (if popped out) */}
-        {isProjectInspectorFloating && (
-          <div className="floating-inspector-window-overlay" onClick={() => setIsProjectInspectorFloating(false)}>
-            <div className="floating-inspector-window-box" onClick={e => e.stopPropagation()}>
-              <ProjectInspector
-                forms={forms}
-                activeFormId={activeFormId}
-                onSelectForm={handleSwitchForm}
-                onOpenCodeFile={handleOpenCodeFile}
-                onNewForm={handleNewForm}
-                onRemoveForm={handleRemoveForm}
-                isFloating={true}
-                onClose={() => setIsProjectInspectorFloating(false)}
-                onToggleFloat={() => setIsProjectInspectorFloating(false)}
-              />
-            </div>
-          </div>
-        )}
+        {/* Left Dock: Object Inspector (Original location & original tabs) */}
+        <ObjectInspector
+          form={form}
+          selectedComponentIds={selectedComponentIds}
+          onSelectComponent={handleSelectComponent}
+          onSelectForm={handleSelectForm}
+          onUpdateComponent={handleUpdateComponent}
+          onUpdateForm={handleUpdateForm}
+          onOpenEventHandler={handleOpenEventHandler}
+        />
 
         {/* Center Dock: Form Designer or Code Editor */}
         <main className="lazarus-main-center">
@@ -837,6 +779,42 @@ const LazarusIDE: React.FC = () => {
             />
           )}
         </main>
+
+        {/* Right Dock: Project Inspector (Lado direito como no Lazarus) */}
+        {isProjectInspectorOpen && (
+          <aside className="lazarus-right-dock-panel">
+            <ProjectInspector
+              forms={forms}
+              activeFormId={activeFormId}
+              onSelectForm={handleSwitchForm}
+              onOpenCodeFile={handleOpenCodeFile}
+              onNewForm={handleNewForm}
+              onRemoveForm={handleRemoveForm}
+              onClose={() => setIsProjectInspectorOpen(false)}
+              onToggleFloat={() => setIsProjectInspectorFloating(true)}
+              isFloating={false}
+            />
+          </aside>
+        )}
+
+        {/* Floating Project Inspector Window (quando desacoplado) */}
+        {isProjectInspectorFloating && (
+          <div className="floating-inspector-window-overlay" onClick={() => setIsProjectInspectorFloating(false)}>
+            <div className="floating-inspector-window-box" onClick={e => e.stopPropagation()}>
+              <ProjectInspector
+                forms={forms}
+                activeFormId={activeFormId}
+                onSelectForm={handleSwitchForm}
+                onOpenCodeFile={handleOpenCodeFile}
+                onNewForm={handleNewForm}
+                onRemoveForm={handleRemoveForm}
+                isFloating={true}
+                onClose={() => setIsProjectInspectorFloating(false)}
+                onToggleFloat={() => setIsProjectInspectorFloating(false)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom Dock: Compiler Messages & Terminal with Live Streaming */}
