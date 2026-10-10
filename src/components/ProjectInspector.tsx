@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { LForm, LPureUnit } from '../types/lazarus';
+import type { LForm, LPureUnit, LProjectGroup } from '../types/lazarus';
 import {
   Folder,
   FileCode,
@@ -18,13 +18,19 @@ import {
   Filter,
   Maximize2,
   Minimize2,
-  Database
+  Database,
+  Layers
 } from 'lucide-react';
 
 interface ProjectInspectorProps {
   forms: LForm[];
   pureUnits?: LPureUnit[];
   activeFormId: string;
+  projectName?: string;
+  projectGroup?: LProjectGroup;
+  onSelectProject?: (projectId: string) => void;
+  onNewProject?: () => void;
+  onRemoveProject?: (projectId: string) => void;
   onSelectForm: (formId: string) => void;
   onOpenCodeFile: (fileName: string) => void;
   onNewForm: () => void;
@@ -41,6 +47,11 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   forms,
   pureUnits = [],
   activeFormId,
+  projectName = 'project1',
+  projectGroup,
+  onSelectProject,
+  onNewProject,
+  onRemoveProject,
   onSelectForm,
   onOpenCodeFile,
   onNewForm,
@@ -105,7 +116,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
       <div className="inspector-titlebar">
         <div className="title-caption">
           <FolderOpen size={13} className="folder-icon" />
-          <span>Inspetor de projetos - project1 [Default]</span>
+          <span>Inspetor de projetos - {projectName} [Default]</span>
         </div>
         <div className="titlebar-actions">
           {onToggleFloat && (
@@ -258,6 +269,60 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
         </button>
       </div>
 
+      {/* Project Group / Multiple Projects Section */}
+      {projectGroup && (
+        <div className="inspector-project-group-box">
+          <div className="group-box-header">
+            <div className="group-header-title">
+              <Layers size={12} className="icon-group" />
+              <span className="group-name-label">{projectGroup.name}.lpg</span>
+              <span className="group-count-badge">({projectGroup.projects.length})</span>
+            </div>
+            {onNewProject && (
+              <button
+                className="group-add-btn"
+                onClick={onNewProject}
+                title="Adicionar novo projeto ao grupo"
+              >
+                <Plus size={11} />
+                <span>+ Projeto</span>
+              </button>
+            )}
+          </div>
+          <div className="project-group-list">
+            {projectGroup.projects.map((proj) => {
+              const isActive = proj.id === (projectGroup.activeProjectId || projectGroup.projects[0]?.id);
+              return (
+                <div
+                  key={proj.id}
+                  className={`project-group-item ${isActive ? 'active' : ''}`}
+                  onClick={() => onSelectProject?.(proj.id)}
+                  title={`Projeto: ${proj.name} (${proj.fileName}) ${isActive ? '[Ativo]' : '- Clique para ativar'}`}
+                >
+                  <FolderOpen size={12} className={isActive ? 'icon-proj-active' : 'icon-proj'} />
+                  <span className="proj-item-name">{proj.name}</span>
+                  {isActive && <span className="proj-active-badge">Ativo</span>}
+                  {projectGroup.projects.length > 1 && onRemoveProject && (
+                    <button
+                      className="proj-item-remove-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Remover projeto "${proj.name}" do grupo?`)) {
+                          onRemoveProject(proj.id);
+                        }
+                      }}
+                      title="Remover projeto do grupo"
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Tree View (Arquivos & Pacotes Requeridos) */}
       <div className="inspector-tree-container">
         {/* Branch: Arquivos */}
@@ -274,17 +339,22 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
 
           {isFilesExpanded && (
             <div className="tree-group-children">
-              {/* project1.lpr */}
-              <div
-                className={`tree-leaf ${selectedItem === 'project1.lpr' ? 'selected' : ''}`}
-                onClick={() => handleItemClick('project1.lpr')}
-                onDoubleClick={() => handleItemDoubleClick('project1.lpr')}
-                title="Arquivo principal do projeto (duplo-clique para abrir)"
-              >
-                <FileCode size={13} className="icon-lpr" />
-                <span className="leaf-name">project1.lpr</span>
-                <span className="leaf-badge lpr-badge">Programa</span>
-              </div>
+              {/* project.lpr */}
+              {(() => {
+                const lprName = `${(projectName || 'project1').toLowerCase()}.lpr`;
+                return (
+                  <div
+                    className={`tree-leaf ${selectedItem === lprName ? 'selected' : ''}`}
+                    onClick={() => handleItemClick(lprName)}
+                    onDoubleClick={() => handleItemDoubleClick(lprName)}
+                    title="Arquivo principal do projeto (duplo-clique para abrir)"
+                  >
+                    <FileCode size={13} className="icon-lpr" />
+                    <span className="leaf-name">{lprName}</span>
+                    <span className="leaf-badge lpr-badge">Programa</span>
+                  </div>
+                );
+              })()}
 
               {/* Form & DataModule Units */}
               {displayForms.map(f => {
@@ -387,14 +457,14 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
         <div className="inspector-modal-overlay" onClick={() => setShowOptionsModal(false)}>
           <div className="inspector-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-titlebar">
-              <span>Opções do Projeto: Project1</span>
+              <span>Opções do Projeto: {projectName}</span>
               <button onClick={() => setShowOptionsModal(false)}>
                 <X size={12} />
               </button>
             </div>
             <div className="modal-body">
               <div className="modal-info-row">
-                <strong>Projeto:</strong> Project1.lpr
+                <strong>Projeto:</strong> {projectName}.lpr
               </div>
               <div className="modal-info-row">
                 <strong>Formulários no Projeto:</strong> {forms.length}

@@ -6,7 +6,9 @@ import type {
   LForm,
   LPureUnit,
   IDEState,
-  ConsoleMessage
+  ConsoleMessage,
+  LProject,
+  LProjectGroup
 } from './types/lazarus';
 import { COMPONENT_DEFINITIONS } from './data/componentRegistry';
 import { TopMenuBar } from './components/TopMenuBar';
@@ -23,7 +25,8 @@ import {
   generateLFM,
   generateProjectLpr,
   generateLPI,
-  generatePureUnitPas
+  generatePureUnitPas,
+  generateLPG
 } from './utils/pascalGenerator';
 import {
   FileCode,
@@ -103,6 +106,18 @@ const INITIAL_FORM: LForm = {
   ]
 };
 
+const createInitialProject = (name = 'Project1', id = 'proj_1'): LProject => ({
+  id,
+  name,
+  fileName: `${name}.lpi`,
+  lprFileName: `${name}.lpr`,
+  forms: [{ ...INITIAL_FORM, unitName: 'Unit1' }],
+  pureUnits: [],
+  activeFormId: INITIAL_FORM.id,
+  openFiles: ['unit1.pas', 'unit1.lfm'],
+  activeCodeFile: 'unit1.pas'
+});
+
 export const App: React.FC = () => {
   // Check if opened as standalone execution window
   const isRunMode = typeof window !== 'undefined' && (
@@ -118,6 +133,14 @@ export const App: React.FC = () => {
 };
 
 const LazarusIDE: React.FC = () => {
+  const [projectGroup, setProjectGroup] = useState<LProjectGroup>({
+    id: 'group_1',
+    name: 'ProjectGroup1',
+    fileName: 'ProjectGroup1.lpg',
+    projects: [createInitialProject('Project1', 'proj_1')],
+    activeProjectId: 'proj_1'
+  });
+
   const [forms, setForms] = useState<LForm[]>([
     {
       ...INITIAL_FORM,
@@ -842,13 +865,15 @@ const LazarusIDE: React.FC = () => {
   // Export Project Files (ZIP with all units, LFMs, project files)
   const handleExportProject = useCallback(async () => {
     try {
+      const currentProject = projectGroup.projects.find(p => p.id === projectGroup.activeProjectId) || projectGroup.projects[0];
+      const projName = currentProject ? currentProject.name : 'Project1';
       const zip = new JSZip();
 
-      // 1. Project file: Project1.lpr
-      zip.file('Project1.lpr', generateProjectLpr(forms, pureUnits));
+      // 1. Project file: e.g. Project1.lpr
+      zip.file(`${projName}.lpr`, generateProjectLpr(forms, pureUnits));
 
-      // 2. Project information: Project1.lpi
-      zip.file('Project1.lpi', generateLPI('Project1', forms, pureUnits));
+      // 2. Project information: e.g. Project1.lpi
+      zip.file(`${projName}.lpi`, generateLPI(projName, forms, pureUnits));
 
       // 3. For each form in project, export both .pas and .lfm
       forms.forEach(f => {
@@ -866,15 +891,255 @@ const LazarusIDE: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'LazarusWebProject.zip';
+      a.download = `${projName}.zip`;
       a.click();
       URL.revokeObjectURL(url);
 
-      addConsoleLog(`Projeto completo exportado: LazarusWebProject.zip contendo todas as units (.pas), formulários (.lfm) e arquivos de projeto (.lpr / .lpi).`, 'success');
+      addConsoleLog(`Projeto '${projName}' exportado com sucesso: ${projName}.zip contendo units (.pas), formulários (.lfm) e arquivos de projeto (.lpr / .lpi).`, 'success');
     } catch (err) {
       addConsoleLog(`Erro ao gerar arquivo zip de exportação: ${String(err)}`, 'error');
     }
-  }, [forms, pureUnits, addConsoleLog]);
+  }, [projectGroup, forms, pureUnits, addConsoleLog]);
+
+  // Switch active project in the project group
+  const handleSelectProject = useCallback((targetProjectId: string) => {
+    setProjectGroup(prevGroup => {
+      // 1. Save current state of active project
+      const updatedProjects = prevGroup.projects.map(proj => {
+        if (proj.id === prevGroup.activeProjectId) {
+          return {
+            ...proj,
+            forms,
+            pureUnits,
+            activeFormId,
+            openFiles: openCodeFiles,
+            activeCodeFile
+          };
+        }
+        return proj;
+      });
+
+      // 2. Locate target project
+      const targetProj = updatedProjects.find(p => p.id === targetProjectId);
+      if (!targetProj) return prevGroup;
+
+      // 3. Load target project into working state
+      setForms(targetProj.forms);
+      setPureUnits(targetProj.pureUnits || []);
+      setActiveFormId(targetProj.activeFormId || targetProj.forms[0]?.id || 'form1');
+      const targetOpenFiles = targetProj.openFiles && targetProj.openFiles.length > 0
+        ? targetProj.openFiles
+        : [`${(targetProj.forms[0]?.unitName || 'Unit1').toLowerCase()}.pas`, `${(targetProj.forms[0]?.unitName || 'Unit1').toLowerCase()}.lfm`];
+      setOpenCodeFiles(targetOpenFiles);
+      setActiveCodeFile(targetProj.activeCodeFile || targetOpenFiles[0]);
+      setSelectedComponentIds([]);
+
+      addConsoleLog(`[Grupo de Projetos] Projeto ativo alterado para "${targetProj.name}" (${targetProj.fileName})`, 'info');
+
+      return {
+        ...prevGroup,
+        projects: updatedProjects,
+        activeProjectId: targetProjectId
+      };
+    });
+  }, [forms, pureUnits, activeFormId, openCodeFiles, activeCodeFile, addConsoleLog]);
+
+  // Add a new project to the current project group
+  const handleAddProjectToGroup = useCallback(() => {
+    setProjectGroup(prevGroup => {
+      let nextNum = prevGroup.projects.length + 1;
+      while (prevGroup.projects.some(p => p.name.toLowerCase() === `project${nextNum}`.toLowerCase())) {
+        nextNum++;
+      }
+      const projName = `Project${nextNum}`;
+      const projId = `proj_${Date.now()}`;
+
+      // Save current project state
+      const updatedProjects = prevGroup.projects.map(proj => {
+        if (proj.id === prevGroup.activeProjectId) {
+          return {
+            ...proj,
+            forms,
+            pureUnits,
+            activeFormId,
+            openFiles: openCodeFiles,
+            activeCodeFile
+          };
+        }
+        return proj;
+      });
+
+      const newProj = createInitialProject(projName, projId);
+      updatedProjects.push(newProj);
+
+      // Switch immediately to new project
+      setForms(newProj.forms);
+      setPureUnits(newProj.pureUnits);
+      setActiveFormId(newProj.activeFormId);
+      setOpenCodeFiles(newProj.openFiles || ['unit1.pas', 'unit1.lfm']);
+      setActiveCodeFile(newProj.activeCodeFile || 'unit1.pas');
+      setSelectedComponentIds([]);
+
+      addConsoleLog(`[Grupo de Projetos] Novo projeto adicionado ao grupo: ${projName} (${projName}.lpi)`, 'success');
+
+      return {
+        ...prevGroup,
+        projects: updatedProjects,
+        activeProjectId: projId
+      };
+    });
+  }, [forms, pureUnits, activeFormId, openCodeFiles, activeCodeFile, addConsoleLog]);
+
+  // Remove project from current project group
+  const handleRemoveProjectFromGroup = useCallback((targetProjectId: string) => {
+    setProjectGroup(prevGroup => {
+      if (prevGroup.projects.length <= 1) {
+        addConsoleLog('[Aviso] O grupo de projetos deve conter pelo menos um projeto.', 'warning');
+        return prevGroup;
+      }
+
+      const target = prevGroup.projects.find(p => p.id === targetProjectId);
+      const remaining = prevGroup.projects.filter(p => p.id !== targetProjectId);
+      let newActiveId = prevGroup.activeProjectId;
+
+      if (prevGroup.activeProjectId === targetProjectId) {
+        newActiveId = remaining[0].id;
+        const nextProj = remaining[0];
+        setForms(nextProj.forms);
+        setPureUnits(nextProj.pureUnits || []);
+        setActiveFormId(nextProj.activeFormId || nextProj.forms[0]?.id || 'form1');
+        setOpenCodeFiles(nextProj.openFiles || ['unit1.pas', 'unit1.lfm']);
+        setActiveCodeFile(nextProj.activeCodeFile || 'unit1.pas');
+        setSelectedComponentIds([]);
+      }
+
+      addConsoleLog(`[Grupo de Projetos] Projeto "${target?.name || ''}" removido do grupo.`, 'info');
+
+      return {
+        ...prevGroup,
+        projects: remaining,
+        activeProjectId: newActiveId
+      };
+    });
+  }, [addConsoleLog]);
+
+  // Create a brand new project group (.lpg)
+  const handleNewProjectGroup = useCallback(() => {
+    const freshProj = createInitialProject('Project1', 'proj_1');
+    const newGroup: LProjectGroup = {
+      id: `group_${Date.now()}`,
+      name: 'ProjectGroup1',
+      fileName: 'ProjectGroup1.lpg',
+      projects: [freshProj],
+      activeProjectId: freshProj.id
+    };
+    setProjectGroup(newGroup);
+    setForms(freshProj.forms);
+    setPureUnits(freshProj.pureUnits);
+    setActiveFormId(freshProj.activeFormId);
+    setOpenCodeFiles(freshProj.openFiles || ['unit1.pas', 'unit1.lfm']);
+    setActiveCodeFile(freshProj.activeCodeFile || 'unit1.pas');
+    setSelectedComponentIds([]);
+    addConsoleLog(`[Grupo de Projetos] Novo grupo de projetos inicializado: ProjectGroup1.lpg`, 'success');
+  }, [addConsoleLog]);
+
+  // Save Project Group (.lpg)
+  const handleSaveProjectGroup = useCallback(() => {
+    try {
+      const currentProjects = projectGroup.projects.map(proj => {
+        if (proj.id === projectGroup.activeProjectId) {
+          return {
+            ...proj,
+            forms,
+            pureUnits,
+            activeFormId,
+            openFiles: openCodeFiles,
+            activeCodeFile
+          };
+        }
+        return proj;
+      });
+
+      const updatedGroup: LProjectGroup = {
+        ...projectGroup,
+        projects: currentProjects
+      };
+
+      const lpgXml = generateLPG(updatedGroup);
+      const blob = new Blob([lpgXml], { type: 'application/xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = updatedGroup.fileName || `${updatedGroup.name}.lpg`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      addConsoleLog(`[Grupo de Projetos] Grupo de projetos salvo: ${updatedGroup.fileName}`, 'success');
+    } catch (err) {
+      addConsoleLog(`Erro ao salvar grupo de projetos: ${String(err)}`, 'error');
+    }
+  }, [projectGroup, forms, pureUnits, activeFormId, openCodeFiles, activeCodeFile, addConsoleLog]);
+
+  // Export Complete Project Group (.zip)
+  const handleExportProjectGroup = useCallback(async () => {
+    try {
+      const zip = new JSZip();
+
+      const currentProjects = projectGroup.projects.map(proj => {
+        if (proj.id === projectGroup.activeProjectId) {
+          return {
+            ...proj,
+            forms,
+            pureUnits,
+            activeFormId,
+            openFiles: openCodeFiles,
+            activeCodeFile
+          };
+        }
+        return proj;
+      });
+
+      const updatedGroup: LProjectGroup = {
+        ...projectGroup,
+        projects: currentProjects
+      };
+
+      // 1. Root .lpg file
+      zip.file(updatedGroup.fileName || `${updatedGroup.name}.lpg`, generateLPG(updatedGroup));
+
+      // 2. Each project in its own folder
+      updatedGroup.projects.forEach(proj => {
+        const folder = zip.folder(proj.name) || zip;
+        folder.file(`${proj.name}.lpr`, generateProjectLpr(proj.forms, proj.pureUnits));
+        folder.file(`${proj.name}.lpi`, generateLPI(proj.name, proj.forms, proj.pureUnits));
+
+        proj.forms.forEach(f => {
+          const uName = f.unitName || 'Unit1';
+          folder.file(`${uName}.pas`, generateUnitPas(f));
+          folder.file(`${uName}.lfm`, generateLFM(f));
+        });
+
+        (proj.pureUnits || []).forEach(u => {
+          folder.file(u.fileName, u.code);
+        });
+      });
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${updatedGroup.name}_Group.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      addConsoleLog(
+        `[Grupo de Projetos] Grupo completo exportado (${updatedGroup.projects.length} projetos): ${updatedGroup.name}_Group.zip`,
+        'success'
+      );
+    } catch (err) {
+      addConsoleLog(`Erro ao exportar grupo de projetos: ${String(err)}`, 'error');
+    }
+  }, [projectGroup, forms, pureUnits, activeFormId, openCodeFiles, activeCodeFile, addConsoleLog]);
 
   // Save current Unit file
   const handleSaveUnit = useCallback(() => {
@@ -1031,11 +1296,17 @@ const LazarusIDE: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
   }, [handleRun, handleToggleFormCode]);
 
+  const currentProject = projectGroup.projects.find(p => p.id === projectGroup.activeProjectId) || projectGroup.projects[0];
+  const activeProjectName = currentProject ? currentProject.name : 'Project1';
+
   const ideState: IDEState = {
     form,
     forms,
     pureUnits,
     activeFormId,
+    projectGroup,
+    projects: projectGroup.projects,
+    activeProjectId: projectGroup.activeProjectId,
     selectedComponentIds,
     activeTab,
     activeCodeFile,
@@ -1069,6 +1340,10 @@ const LazarusIDE: React.FC = () => {
         onSaveUnit={handleSaveUnit}
         onSaveProject={handleSaveProject}
         onExportProject={handleExportProject}
+        onNewProjectGroup={handleNewProjectGroup}
+        onAddProjectToGroup={handleAddProjectToGroup}
+        onSaveProjectGroup={handleSaveProjectGroup}
+        onExportProjectGroup={handleExportProjectGroup}
         onUndo={handleUndo}
         onRedo={handleRedo}
         canUndo={historyIndex > 0}
@@ -1260,6 +1535,11 @@ const LazarusIDE: React.FC = () => {
               forms={forms}
               pureUnits={pureUnits}
               activeFormId={activeFormId}
+              projectName={activeProjectName}
+              projectGroup={projectGroup}
+              onSelectProject={handleSelectProject}
+              onNewProject={handleAddProjectToGroup}
+              onRemoveProject={handleRemoveProjectFromGroup}
               onSelectForm={handleSwitchForm}
               onOpenCodeFile={handleOpenCodeFile}
               onNewForm={handleNewForm}
@@ -1282,6 +1562,11 @@ const LazarusIDE: React.FC = () => {
                 forms={forms}
                 pureUnits={pureUnits}
                 activeFormId={activeFormId}
+                projectName={activeProjectName}
+                projectGroup={projectGroup}
+                onSelectProject={handleSelectProject}
+                onNewProject={handleAddProjectToGroup}
+                onRemoveProject={handleRemoveProjectFromGroup}
                 onSelectForm={handleSwitchForm}
                 onOpenCodeFile={handleOpenCodeFile}
                 onNewForm={handleNewForm}

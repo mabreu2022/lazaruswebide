@@ -1285,18 +1285,47 @@ const ComponentRenderer: React.FC<{
         </button>
       );
 
-    case 'TImage':
+    case 'TImage': {
+      const src = comp.picture || comp.imageUrl;
+      const objectFit = comp.stretch
+        ? comp.proportional ? 'contain' : 'fill'
+        : 'none';
+      const objectPosition = comp.center ? 'center' : 'top left';
+
       return (
-        <div className="lcl-widget lcl-image">
-          {comp.imageUrl ? (
-            <img src={comp.imageUrl} alt={comp.name} />
+        <div
+          className="lcl-widget lcl-image"
+          style={{
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: comp.center ? 'center' : 'flex-start',
+            justifyContent: comp.center ? 'center' : 'flex-start',
+            backgroundColor: comp.color || 'transparent'
+          }}
+        >
+          {src ? (
+            <img
+              src={src}
+              alt={comp.name}
+              style={{
+                width: comp.stretch ? '100%' : 'auto',
+                height: comp.stretch ? '100%' : 'auto',
+                objectFit,
+                objectPosition,
+                pointerEvents: 'none',
+                userSelect: 'none'
+              }}
+            />
           ) : (
             <div className="image-placeholder">
-              <span>🖼️ TImage</span>
+              <span>🖼️ {comp.name}</span>
             </div>
           )}
         </div>
       );
+    }
 
     case 'TShape':
       return (
@@ -1420,6 +1449,17 @@ const ComponentRenderer: React.FC<{
           </div>
           <span className="zeos-comp-name">{comp.name}</span>
           <span className="zeos-proto-tag">{comp.protocol || 'firebird-5.0'}</span>
+        </div>
+      );
+
+    case 'TZTransaction':
+      return (
+        <div className="lcl-widget lcl-zeos-component ztransaction-widget" title={`${comp.name} - Transação Firebird 5.0 (Zeos DBO)`}>
+          <div className="zeos-icon-box trans-badge" style={{ backgroundColor: '#10b981' }}>
+            {renderComponentIcon('ShieldCheck', 20)}
+          </div>
+          <span className="zeos-comp-name">{comp.name}</span>
+          <span className="zeos-proto-tag">{comp.transactIsolationLevel || 'tiReadCommitted'}</span>
         </div>
       );
 

@@ -833,6 +833,52 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, allComps, o
         />
       );
 
+    case 'TImage': {
+      const src = comp.picture || comp.imageUrl;
+      const objectFit = comp.stretch
+        ? comp.proportional ? 'contain' : 'fill'
+        : 'none';
+      const objectPosition = comp.center ? 'center' : 'top left';
+
+      return (
+        <div
+          className="run-widget run-image"
+          style={{
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: comp.center ? 'center' : 'flex-start',
+            justifyContent: comp.center ? 'center' : 'flex-start',
+            backgroundColor: comp.color || 'transparent'
+          }}
+          onClick={comp.events?.OnClick ? () => onTrigger('OnClick') : undefined}
+          onDoubleClick={comp.events?.OnDblClick ? () => onTrigger('OnDblClick') : undefined}
+        >
+          {src ? (
+            <img
+              src={src}
+              alt={comp.name}
+              style={{
+                width: comp.stretch ? '100%' : 'auto',
+                height: comp.stretch ? '100%' : 'auto',
+                maxWidth: comp.stretch ? '100%' : undefined,
+                maxHeight: comp.stretch ? '100%' : undefined,
+                objectFit,
+                objectPosition,
+                pointerEvents: 'none',
+                userSelect: 'none'
+              }}
+            />
+          ) : (
+            <div className="image-placeholder">
+              <span>🖼️ {comp.name}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     default:
       if (comp.isNonVisual) {
         return null;

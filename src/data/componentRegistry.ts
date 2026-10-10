@@ -375,6 +375,17 @@ export const COMPONENT_DEFINITIONS: Record<LComponentType, LComponentDefinition>
     description: 'Conexão nativa com Banco de Dados Firebird 5.0 (Zeos DBO)',
     isNonVisual: true
   },
+  TZTransaction: {
+    type: 'TZTransaction',
+    category: 'Zeos / Firebird',
+    defaultName: 'ZTransaction',
+    defaultCaption: 'ZTransaction1',
+    defaultWidth: 42,
+    defaultHeight: 42,
+    iconName: 'ShieldCheck',
+    description: 'Controle de transação Firebird 5.0 / Zeos DBO (Commit, Rollback, Isolation)',
+    isNonVisual: true
+  },
   TZQuery: {
     type: 'TZQuery',
     category: 'Zeos / Firebird',
@@ -447,6 +458,7 @@ export const STANDARD_EVENTS: Record<LComponentType, string[]> = {
   TDBNavigator: ['OnClick'],
   TDBEdit: ['OnChange', 'OnExit'],
   TZConnection: ['AfterConnect', 'BeforeConnect', 'AfterDisconnect'],
+  TZTransaction: ['AfterCommit', 'AfterRollback', 'BeforeCommit', 'BeforeRollback'],
   TZQuery: ['AfterOpen', 'BeforeOpen', 'AfterClose', 'AfterPost', 'AfterDelete'],
   TZTable: ['AfterOpen', 'AfterPost'],
   TDataSource: ['OnDataChange', 'OnUpdateData']

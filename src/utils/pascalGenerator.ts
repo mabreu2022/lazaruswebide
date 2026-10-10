@@ -1,4 +1,4 @@
-import type { LComponent, LForm } from '../types/lazarus';
+import type { LComponent, LForm, LProjectGroup } from '../types/lazarus';
 import { isContainerComponent } from './layoutEngine';
 
 /**
@@ -14,7 +14,7 @@ export function generateUnitPas(form: LForm): string {
 
   const extraUses = [];
   if (hasDB) extraUses.push('DB');
-  if (hasZeos) extraUses.push('ZConnection', 'ZDataset', 'ZAbstractRODataset');
+  if (hasZeos) extraUses.push('ZConnection', 'ZDataset', 'ZAbstractRODataset', 'ZTransaction');
   if (hasPairSplitter) extraUses.push('PairSplitter');
 
   // Collect event procedures
@@ -194,6 +194,13 @@ function generateSingleComponentLFM(comp: LComponent, form: LForm, indent: strin
     }
   }
 
+  // TImage properties
+  if (comp.type === 'TImage') {
+    if (comp.stretch) lines.push(`${indent}  Stretch = True`);
+    if (comp.proportional) lines.push(`${indent}  Proportional = True`);
+    if (comp.center) lines.push(`${indent}  Center = True`);
+  }
+
   // Zeos TZConnection properties
   if (comp.type === 'TZConnection') {
     lines.push(`${indent}  Protocol = '${comp.protocol || 'firebird-5.0'}'`);
@@ -206,9 +213,18 @@ function generateSingleComponentLFM(comp: LComponent, form: LForm, indent: strin
     if (comp.charSet) lines.push(`${indent}  CharSet = '${comp.charSet}'`);
   }
 
+  // Zeos TZTransaction properties
+  if (comp.type === 'TZTransaction') {
+    if (comp.connectionName) lines.push(`${indent}  Connection = ${comp.connectionName}`);
+    if (comp.autoCommit !== undefined) lines.push(`${indent}  AutoCommit = ${comp.autoCommit ? 'True' : 'False'}`);
+    if (comp.transactIsolationLevel) lines.push(`${indent}  TransactIsolationLevel = ${comp.transactIsolationLevel}`);
+    if (comp.active) lines.push(`${indent}  Active = True`);
+  }
+
   // Zeos TZQuery properties
   if (comp.type === 'TZQuery') {
     if (comp.connectionName) lines.push(`${indent}  Connection = ${comp.connectionName}`);
+    if (comp.transactionName) lines.push(`${indent}  Transaction = ${comp.transactionName}`);
     if (comp.sql) {
       lines.push(`${indent}  SQL.Strings = (`);
       lines.push(`${indent}    '${comp.sql.replace(/'/g, "''")}'`);
@@ -220,6 +236,7 @@ function generateSingleComponentLFM(comp: LComponent, form: LForm, indent: strin
   // Zeos TZTable properties
   if (comp.type === 'TZTable') {
     if (comp.connectionName) lines.push(`${indent}  Connection = ${comp.connectionName}`);
+    if (comp.transactionName) lines.push(`${indent}  Transaction = ${comp.transactionName}`);
     if (comp.text) lines.push(`${indent}  TableName = '${comp.text}'`);
     if (comp.active) lines.push(`${indent}  Active = True`);
   }
@@ -437,6 +454,30 @@ export function generateLPI(
 ${formsXml}
 ${pureUnitsXml ? pureUnitsXml + '\n' : ''}    </Units>
   </ProjectOptions>
+</CONFIG>
+`;
+}
+
+/**
+ * Generates Lazarus Project Group (.lpg) XML file
+ */
+export function generateLPG(group: LProjectGroup): string {
+  const itemsXml = group.projects.map((proj, idx) => {
+    return `      <Item${idx} Path="${proj.name}.lpi"/>`;
+  }).join('\n');
+
+  const activeTargetXml = group.activeProjectId
+    ? group.projects.find(p => p.id === group.activeProjectId)?.name || group.projects[0]?.name || 'Project1'
+    : group.projects[0]?.name || 'Project1';
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectGroup Version="2">
+    <Group Count="${group.projects.length}">
+${itemsXml}
+    </Group>
+    <ActiveTarget Project="${activeTargetXml}.lpi"/>
+  </ProjectGroup>
 </CONFIG>
 `;
 }

@@ -14,6 +14,7 @@ interface ComponentPaletteProps {
 const CATEGORIES: ComponentCategory[] = [
   'Standard',
   'Additional',
+  'Containers',
   'Common Controls',
   'Dialogs',
   'Data Controls',
@@ -35,6 +36,23 @@ export const ComponentPalette: React.FC<ComponentPaletteProps> = ({
         c.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.description.toLowerCase().includes(searchQuery.toLowerCase())
       );
+    }
+    if (activeCategory === 'Containers') {
+      return [
+        'TPanel',
+        'TScrollBox',
+        'TGroupBox',
+        'TRadioGroup',
+        'TPageControl',
+        'TNotebook',
+        'TFlowPanel',
+        'TGridPanel',
+        'TPairSplitter',
+        'TFrame'
+      ].includes(c.type);
+    }
+    if (activeCategory === 'Standard') {
+      return c.category === 'Standard' || c.type === 'TScrollBox';
     }
     return c.category === activeCategory;
   });

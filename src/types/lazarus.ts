@@ -1,6 +1,7 @@
 export type ComponentCategory =
   | 'Standard'
   | 'Additional'
+  | 'Containers'
   | 'Common Controls'
   | 'Dialogs'
   | 'Data Controls'
@@ -49,6 +50,7 @@ export type LComponentType =
   | 'TDBEdit'
   // Zeos / Firebird 5.0 Database Access
   | 'TZConnection'
+  | 'TZTransaction'
   | 'TZQuery'
   | 'TZTable'
   | 'TDataSource';
@@ -125,6 +127,10 @@ export interface LComponent {
   value?: number;
   shapeType?: 'rectangle' | 'circle' | 'roundRect';
   imageUrl?: string;
+  picture?: string;          // Picture Data URL or image path (TImage)
+  stretch?: boolean;          // Stretch image to fill TImage (TImage)
+  proportional?: boolean;     // Maintain aspect ratio (TImage)
+  center?: boolean;           // Center image within control (TImage)
   tabs?: string[];
   activeTab?: number;
   activePageIndex?: number;
@@ -141,6 +147,8 @@ export interface LComponent {
   charSet?: string;          // 'UTF8'
   autoCommit?: boolean;      // True / False
   connectionName?: string;   // Reference to TZConnection
+  transactionName?: string;  // Reference to TZTransaction
+  transactIsolationLevel?: 'tiReadCommitted' | 'tiSerializable' | 'tiRepeatableRead' | 'tiNone'; // Zeos Transaction Isolation
   sql?: string;              // 'SELECT * FROM CLIENTES'
   active?: boolean;          // True / False
   datasetName?: string;      // Reference to TZQuery / TZTable
@@ -178,11 +186,34 @@ export interface LPureUnit {
   code: string;
 }
 
+export interface LProject {
+  id: string;
+  name: string;          // 'Project1'
+  fileName: string;      // 'Project1.lpi'
+  lprFileName: string;   // 'Project1.lpr'
+  forms: LForm[];
+  pureUnits: LPureUnit[];
+  activeFormId: string;
+  openFiles?: string[];
+  activeCodeFile?: string;
+}
+
+export interface LProjectGroup {
+  id: string;
+  name: string;          // 'ProjectGroup1'
+  fileName: string;      // 'ProjectGroup1.lpg'
+  projects: LProject[];
+  activeProjectId: string;
+}
+
 export interface IDEState {
   form: LForm;
   forms?: LForm[];
   pureUnits?: LPureUnit[];
   activeFormId?: string;
+  projectGroup?: LProjectGroup;
+  projects?: LProject[];
+  activeProjectId?: string;
   selectedComponentIds: string[];
   activeTab: 'form' | 'code' | 'lfm' | 'project';
   activeCodeFile: string; // 'Unit1.pas' | 'Unit1.lfm' | 'Unit2.pas' | 'Unit2.lfm' | 'Project1.lpr'

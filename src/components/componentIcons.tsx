@@ -36,7 +36,8 @@ import {
   LayoutGrid,
   Columns2,
   PanelLeftClose,
-  FileCode
+  FileCode,
+  ShieldCheck
 } from 'lucide-react';
 
 export const renderComponentIcon = (iconName: string, size = 16): React.ReactElement => {
@@ -78,6 +79,7 @@ export const renderComponentIcon = (iconName: string, size = 16): React.ReactEle
     case 'Columns2': return <Columns2 size={size} />;
     case 'PanelLeftClose': return <PanelLeftClose size={size} />;
     case 'FileCode': return <FileCode size={size} />;
+    case 'ShieldCheck': return <ShieldCheck size={size} />;
     default: return <SquareMousePointer size={size} />;
   }
 };

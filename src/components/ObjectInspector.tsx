@@ -612,6 +612,84 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                   />
                 )}
 
+                {/* Picture & Image properties (TImage) */}
+                {selectedComp.type === 'TImage' && (
+                  <>
+                    {filterMatch('Picture', filterQuery) && (
+                      <div className="property-row prop-picture-row">
+                        <div className="prop-label-col" title="Picture">
+                          <span>Picture</span>
+                        </div>
+                        <div className="prop-value-col picture-value-col">
+                          {(selectedComp.picture || selectedComp.imageUrl) ? (
+                            <div className="picture-preview-thumb-box">
+                              <img
+                                src={selectedComp.picture || selectedComp.imageUrl}
+                                alt="preview"
+                                className="picture-preview-thumb"
+                              />
+                              <span className="picture-info-tag">Carregada</span>
+                              <button
+                                type="button"
+                                className="prop-btn-clear"
+                                title="Remover Imagem"
+                                onClick={() => onUpdateComponent(selectedComp.id, { picture: undefined, imageUrl: undefined })}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="prop-readonly-val">(Nenhuma)</span>
+                          )}
+                          <label className="prop-file-btn" title="Escolher arquivo de imagem">
+                            <span>Carregar...</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (re) => {
+                                    const dataUrl = re.target?.result as string;
+                                    onUpdateComponent(selectedComp.id, { picture: dataUrl, imageUrl: dataUrl });
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                    {filterMatch('Stretch', filterQuery) && (
+                      <PropertyRow
+                        label="Stretch"
+                        type="boolean"
+                        value={selectedComp.stretch ?? false}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { stretch: Boolean(val) })}
+                      />
+                    )}
+                    {filterMatch('Proportional', filterQuery) && (
+                      <PropertyRow
+                        label="Proportional"
+                        type="boolean"
+                        value={selectedComp.proportional ?? false}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { proportional: Boolean(val) })}
+                      />
+                    )}
+                    {filterMatch('Center', filterQuery) && (
+                      <PropertyRow
+                        label="Center"
+                        type="boolean"
+                        value={selectedComp.center ?? false}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { center: Boolean(val) })}
+                      />
+                    )}
+                  </>
+                )}
+
                 {/* Zeos / Firebird: TZConnection Properties */}
                 {selectedComp.type === 'TZConnection' && (
                   <>
@@ -686,6 +764,46 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                   </>
                 )}
 
+                {/* Zeos / Firebird: TZTransaction Properties */}
+                {selectedComp.type === 'TZTransaction' && (
+                  <>
+                    {filterMatch('Connection', filterQuery) && (
+                      <PropertyRow
+                        label="Connection"
+                        type="select"
+                        options={['(Nenhum)', ...form.components.filter(c => c.type === 'TZConnection').map(c => c.name)]}
+                        value={selectedComp.connectionName || (form.components.find(c => c.type === 'TZConnection')?.name || '')}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { connectionName: String(val) })}
+                      />
+                    )}
+                    {filterMatch('AutoCommit', filterQuery) && (
+                      <PropertyRow
+                        label="AutoCommit"
+                        type="boolean"
+                        value={selectedComp.autoCommit ?? false}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { autoCommit: Boolean(val) })}
+                      />
+                    )}
+                    {filterMatch('TransactIsolationLevel', filterQuery) && (
+                      <PropertyRow
+                        label="TransactIsolationLevel"
+                        type="select"
+                        options={['tiReadCommitted', 'tiSerializable', 'tiRepeatableRead', 'tiNone']}
+                        value={selectedComp.transactIsolationLevel || 'tiReadCommitted'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { transactIsolationLevel: val as any })}
+                      />
+                    )}
+                    {filterMatch('Active', filterQuery) && (
+                      <PropertyRow
+                        label="Active"
+                        type="boolean"
+                        value={selectedComp.active ?? false}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { active: Boolean(val) })}
+                      />
+                    )}
+                  </>
+                )}
+
                 {/* Zeos / Firebird: TZQuery & TZTable Properties */}
                 {(selectedComp.type === 'TZQuery' || selectedComp.type === 'TZTable') && (
                   <>
@@ -696,6 +814,15 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                         options={['(Nenhum)', ...form.components.filter(c => c.type === 'TZConnection').map(c => c.name)]}
                         value={selectedComp.connectionName || (form.components.find(c => c.type === 'TZConnection')?.name || '')}
                         onChange={(val) => onUpdateComponent(selectedComp.id, { connectionName: String(val) })}
+                      />
+                    )}
+                    {filterMatch('Transaction', filterQuery) && (
+                      <PropertyRow
+                        label="Transaction"
+                        type="select"
+                        options={['(Nenhum)', ...form.components.filter(c => c.type === 'TZTransaction').map(c => c.name)]}
+                        value={selectedComp.transactionName || (form.components.find(c => c.type === 'TZTransaction')?.name || '')}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { transactionName: String(val) })}
                       />
                     )}
                     {selectedComp.type === 'TZQuery' && filterMatch('SQL', filterQuery) && (

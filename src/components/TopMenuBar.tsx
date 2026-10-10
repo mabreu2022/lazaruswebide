@@ -42,6 +42,10 @@ interface TopMenuBarProps {
   onOpenSample: (sampleType: 'calc' | 'crud' | 'login' | 'firebird') => void;
   onToggleProjectInspector?: () => void;
   isProjectInspectorOpen?: boolean;
+  onNewProjectGroup?: () => void;
+  onAddProjectToGroup?: () => void;
+  onSaveProjectGroup?: () => void;
+  onExportProjectGroup?: () => void;
 }
 
 export const TopMenuBar: React.FC<TopMenuBarProps> = ({
@@ -64,7 +68,11 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
   canRedo,
   onOpenSample,
   onToggleProjectInspector,
-  isProjectInspectorOpen = false
+  isProjectInspectorOpen = false,
+  onNewProjectGroup,
+  onAddProjectToGroup,
+  onSaveProjectGroup,
+  onExportProjectGroup
 }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
@@ -249,6 +257,44 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
                   }}
                 >
                   <Download size={14} /> Exportar Projeto (.zip)
+                </div>
+                <div className="dropdown-divider" />
+                <div className="dropdown-submenu-header">Grupo de Projetos:</div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onNewProjectGroup?.();
+                    closeMenu();
+                  }}
+                >
+                  <Layers size={14} className="icon-blue" /> Novo Grupo de Projetos (.lpg)
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onAddProjectToGroup?.();
+                    closeMenu();
+                  }}
+                >
+                  <Plus size={14} className="icon-green" /> Adicionar Projeto ao Grupo
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onSaveProjectGroup?.();
+                    closeMenu();
+                  }}
+                >
+                  <Save size={14} /> Salvar Grupo (.lpg)
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onExportProjectGroup?.();
+                    closeMenu();
+                  }}
+                >
+                  <Download size={14} /> Exportar Grupo (.zip)
                 </div>
               </div>
             )}
