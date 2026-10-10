@@ -1,0 +1,224 @@
+object Form1: TForm1
+  Left = 300
+  Height = 520
+  Top = 150
+  Width = 860
+  Caption = 'CRUD Clientes - Firebird 5.0'
+  ClientHeight = 520
+  ClientWidth = 860
+  OnCreate = FormCreate
+  object ZConnection1: TZConnection
+    ControlsCodePage = cCP_UTF8
+    ClientCodePage = 'UTF8'
+    Properties.Strings = (
+      'codepage=UTF8'
+    )
+    HostName = ''
+    Port = 0
+    Database = 'C:\Projetos Antigravity\Lazarusweb\demofirebird5\banco.fdb'
+    User = 'SYSDBA'
+    Password = 'masterkey'
+    Protocol = 'firebird'
+    Left = 24
+    Top = 456
+  end
+  object ZQuery1: TZQuery
+    Connection = ZConnection1
+    SQL.Strings = (
+      'SELECT ID, NOME, ENDERECO, CNPJ, TELEFONE, CONTATO, EMAIL FROM CLIENTES ORDER BY ID'
+    )
+    Params = <>
+    Left = 88
+    Top = 456
+  end
+  object DataSource1: TDataSource
+    DataSet = ZQuery1
+    Left = 152
+    Top = 456
+  end
+  object pnlTop: TPanel
+    Left = 0
+    Height = 40
+    Top = 0
+    Width = 860
+    Align = alTop
+    ClientHeight = 40
+    ClientWidth = 860
+    TabOrder = 0
+    object btnConectar: TButton
+      Left = 8
+      Height = 28
+      Top = 6
+      Width = 100
+      Caption = 'Reconectar'
+      OnClick = btnConectarClick
+      TabOrder = 0
+    end
+    object edtFiltro: TEdit
+      Left = 120
+      Height = 28
+      Top = 6
+      Width = 260
+      OnChange = edtFiltroChange
+      TabOrder = 1
+      TextHint = 'Filtrar por nome...'
+    end
+    object DBNavigator1: TDBNavigator
+      Left = 400
+      Height = 28
+      Top = 6
+      Width = 240
+      BevelOuter = bvNone
+      ChildSizing.EnlargeHorizontal = crsScaleChilds
+      ChildSizing.EnlargeVertical = crsScaleChilds
+      ChildSizing.ShrinkHorizontal = crsScaleChilds
+      ChildSizing.ShrinkVertical = crsScaleChilds
+      ChildSizing.Layout = cclLeftToRightThenTopToBottom
+      ChildSizing.ControlsPerLine = 100
+      DataSource = DataSource1
+      Options = []
+      TabOrder = 2
+    end
+  end
+  object DBGrid1: TDBGrid
+    Left = 0
+    Height = 260
+    Top = 40
+    Width = 860
+    Align = alClient
+    Color = clWindow
+    Columns = <>
+    DataSource = DataSource1
+    TabOrder = 1
+  end
+  object pnlEdit: TPanel
+    Left = 0
+    Height = 180
+    Top = 300
+    Width = 860
+    Align = alBottom
+    ClientHeight = 180
+    ClientWidth = 860
+    TabOrder = 2
+    object lblNome: TLabel
+      Left = 12
+      Height = 15
+      Top = 12
+      Width = 33
+      Caption = 'Nome'
+    end
+    object dbeNome: TDBEdit
+      Left = 12
+      Height = 23
+      Top = 28
+      Width = 400
+      DataField = 'NOME'
+      DataSource = DataSource1
+      MaxLength = 100
+      TabOrder = 0
+    end
+    object lblEndereco: TLabel
+      Left = 424
+      Height = 15
+      Top = 12
+      Width = 49
+      Caption = 'Endereço'
+    end
+    object dbeEndereco: TDBEdit
+      Left = 424
+      Height = 23
+      Top = 28
+      Width = 420
+      DataField = 'ENDERECO'
+      DataSource = DataSource1
+      MaxLength = 150
+      TabOrder = 1
+    end
+    object lblCnpj: TLabel
+      Left = 12
+      Height = 15
+      Top = 64
+      Width = 28
+      Caption = 'CNPJ'
+    end
+    object dbeCnpj: TDBEdit
+      Left = 12
+      Height = 23
+      Top = 80
+      Width = 190
+      DataField = 'CNPJ'
+      DataSource = DataSource1
+      MaxLength = 18
+      TabOrder = 2
+    end
+    object lblTelefone: TLabel
+      Left = 214
+      Height = 15
+      Top = 64
+      Width = 45
+      Caption = 'Telefone'
+    end
+    object dbeTelefone: TDBEdit
+      Left = 214
+      Height = 23
+      Top = 80
+      Width = 198
+      DataField = 'TELEFONE'
+      DataSource = DataSource1
+      MaxLength = 20
+      TabOrder = 3
+    end
+    object lblContato: TLabel
+      Left = 424
+      Height = 15
+      Top = 64
+      Width = 44
+      Caption = 'Contato'
+    end
+    object dbeContato: TDBEdit
+      Left = 424
+      Height = 23
+      Top = 80
+      Width = 200
+      DataField = 'CONTATO'
+      DataSource = DataSource1
+      MaxLength = 80
+      TabOrder = 4
+    end
+    object lblEmail: TLabel
+      Left = 636
+      Height = 15
+      Top = 64
+      Width = 33
+      Caption = 'E-mail'
+    end
+    object dbeEmail: TDBEdit
+      Left = 636
+      Height = 23
+      Top = 80
+      Width = 208
+      DataField = 'EMAIL'
+      DataSource = DataSource1
+      MaxLength = 100
+      TabOrder = 5
+    end
+    object btnGravar: TButton
+      Left = 12
+      Height = 32
+      Top = 126
+      Width = 120
+      Caption = 'Gravar'
+      OnClick = btnGravarClick
+      TabOrder = 6
+    end
+    object btnExcluir: TButton
+      Left = 144
+      Height = 32
+      Top = 126
+      Width = 120
+      Caption = 'Excluir'
+      OnClick = btnExcluirClick
+      TabOrder = 7
+    end
+  end
+end
