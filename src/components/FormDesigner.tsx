@@ -645,8 +645,8 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
         style={{
           left: `${form.left}px`,
           top: `${form.top}px`,
-          width: `${form.width}px`,
-          height: `${form.height}px`
+          width: `${form.width + 2}px`,
+          height: `${form.height + 30}px`
         }}
       >
         {/* Form Title Bar */}
@@ -680,6 +680,8 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
           ref={canvasRef}
           className={`form-client-area ${showGrid ? 'show-dots' : ''}`}
           style={{
+            width: `${form.width}px`,
+            height: `${form.height}px`,
             backgroundColor: form.color || '#ece9d8',
             fontFamily: form.fontFamily || 'Inter, sans-serif'
           }}

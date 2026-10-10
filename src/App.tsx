@@ -983,9 +983,9 @@ const LazarusIDE: React.FC = () => {
     addConsoleLog(`[Sucesso] Compilação finalizada (0 erros, 0 avisos).`, 'success');
     addConsoleLog(`[Execução] Abrindo aplicação em nova janela do navegador...`, 'success');
 
-    // 4. Open in new browser window
-    const popupWidth = Math.max(form.width + 40, 560);
-    const popupHeight = Math.max(form.height + 80, 480);
+    // 4. Open in new browser window matching form client dimensions
+    const popupWidth = Math.max(form.width, 320);
+    const popupHeight = Math.max(form.height + 32, 240);
     const popupLeft = Math.max(40, window.screenX + 120);
     const popupTop = Math.max(40, window.screenY + 100);
 

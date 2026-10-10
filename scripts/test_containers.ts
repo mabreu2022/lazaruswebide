@@ -70,6 +70,27 @@ console.assert(headerBox.left === 0 && headerBox.top === 0 && headerBox.width ==
 console.assert(clientBox.top === 40 && clientBox.left === 0 && clientBox.width === 396 && clientBox.height === 256, `alClient computed correctly: ${JSON.stringify(clientBox)}`);
 console.log('✓ Align engine inside container verified!');
 
+console.log('--- TEST 3B: Root Form alBottom Alignment ---');
+const bottomForm: LForm = {
+  id: 'form_bot',
+  name: 'FormBot',
+  unitName: 'UnitBot',
+  caption: 'FormBot',
+  width: 540,
+  height: 380,
+  components: [
+    { id: 'botPanel', type: 'TPanel', name: 'PanelBottom', left: 0, top: 0, width: 200, height: 75, caption: 'Bottom', parentId: null, align: 'alBottom' }
+  ]
+};
+const botLayout = computeFullFormLayout(bottomForm.components, bottomForm.width, bottomForm.height);
+const botBox = botLayout.get('botPanel')!;
+console.assert(botBox.left === 0, `alBottom left is 0: got ${botBox.left}`);
+console.assert(botBox.width === 540, `alBottom width is form.width (540): got ${botBox.width}`);
+console.assert(botBox.height === 75, `alBottom height is 75: got ${botBox.height}`);
+console.assert(botBox.top === 380 - 75, `alBottom top is 380 - 75 = 305: got ${botBox.top}`);
+console.assert(botBox.top + botBox.height === 380, `alBottom bottom edge is exactly form.height (380): got ${botBox.top + botBox.height}`);
+console.log('✓ Root Form alBottom alignment verified without clipping!');
+
 console.log('--- TEST 4: TFlowPanel Layout ---');
 const flowForm: LForm = {
   id: 'form3',

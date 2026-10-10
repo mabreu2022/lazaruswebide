@@ -70,6 +70,11 @@ export const StandaloneRunner: React.FC = () => {
   });
 
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({
+    width: 540,
+    height: 380
+  });
 
   // Send log to main IDE console
   const sendLogToIDE = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
@@ -80,6 +85,30 @@ export const StandaloneRunner: React.FC = () => {
       window.opener.postMessage({ type: 'RUN_LOG', text, logType: type }, '*');
     }
   };
+
+  // Track dynamic canvas dimensions so alBottom, alTop, alClient, and alRight stretch accurately on window resize/maximize
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const measure = () => {
+      if (canvasRef.current) {
+        const w = canvasRef.current.clientWidth;
+        const h = canvasRef.current.clientHeight;
+        if (w > 0 && h > 0) {
+          setCanvasDimensions({ width: w, height: h });
+        }
+      }
+    };
+
+    measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(canvasRef.current);
+    window.addEventListener('resize', measure);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [form]);
 
   useEffect(() => {
     // Setup communication channel
@@ -95,6 +124,10 @@ export const StandaloneRunner: React.FC = () => {
       try {
         const parsedForm: LForm = JSON.parse(saved);
         setForm(parsedForm);
+        setCanvasDimensions({
+          width: parsedForm.width || 540,
+          height: parsedForm.height || 380
+        });
         document.title = `${parsedForm.caption} - [Executando]`;
 
         const map: Record<string, LComponent> = {};
@@ -235,6 +268,7 @@ export const StandaloneRunner: React.FC = () => {
 
         {/* Form Canvas */}
         <div
+          ref={canvasRef}
           className="run-form-canvas"
           style={{
             flex: 1,
@@ -245,7 +279,7 @@ export const StandaloneRunner: React.FC = () => {
         >
           {(() => {
             const allComps = Object.values(componentsState);
-            const layoutMap = computeFullFormLayout(allComps, form.width, form.height);
+            const layoutMap = computeFullFormLayout(allComps, canvasDimensions.width, canvasDimensions.height);
 
             return allComps.map(comp => {
               if (!comp.visible && !comp.isNonVisual) return null;
