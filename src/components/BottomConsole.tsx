@@ -34,6 +34,19 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
   const [internalCollapsed, setInternalCollapsed] = useState(isCollapsed);
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<'messages' | 'shortcuts'>('messages');
+  const [dockHeight, setDockHeight] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('lazarus_bottom_dock_height');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val) && val >= 60 && val <= 1200) return val;
+      }
+    } catch {
+      // ignore
+    }
+    return 180;
+  });
+  const [isResizing, setIsResizing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Sync collapsed with prop
@@ -54,10 +67,105 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
     onToggleCollapse?.();
   };
 
+  // Mouse drag handler to stretch/shrink messages panel (Delphi / Lazarus style)
+  const handleSplitterMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If collapsed, uncollapse immediately upon dragging
+    if (internalCollapsed) {
+      setInternalCollapsed(false);
+      onToggleCollapse?.();
+    }
+    if (isMaximized) {
+      setIsMaximized(false);
+    }
+
+    setIsResizing(true);
+    const startY = e.clientY;
+    const startHeight = internalCollapsed ? 28 : dockHeight;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault();
+      // Moving mouse upwards (smaller clientY) increases dock height
+      const deltaY = startY - moveEvent.clientY;
+      const minH = 60;
+      const maxH = Math.max(250, window.innerHeight - 100);
+      const newHeight = Math.round(Math.max(minH, Math.min(maxH, startHeight + deltaY)));
+      setDockHeight(newHeight);
+    };
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setIsResizing(false);
+      const deltaY = startY - upEvent.clientY;
+      const minH = 60;
+      const maxH = Math.max(250, window.innerHeight - 100);
+      const finalH = Math.round(Math.max(minH, Math.min(maxH, startHeight + deltaY)));
+      try {
+        localStorage.setItem('lazarus_bottom_dock_height', String(finalH));
+      } catch {
+        // ignore
+      }
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleSplitterDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (internalCollapsed) {
+      setInternalCollapsed(false);
+      onToggleCollapse?.();
+      setDockHeight(180);
+    } else if (dockHeight !== 180) {
+      setDockHeight(180);
+      try {
+        localStorage.setItem('lazarus_bottom_dock_height', '180');
+      } catch {}
+    } else {
+      const nextH = 320;
+      setDockHeight(nextH);
+      try {
+        localStorage.setItem('lazarus_bottom_dock_height', String(nextH));
+      } catch {}
+    }
+  };
+
+  const handleHeaderDoubleClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('.dock-btn') || (e.target as HTMLElement).closest('.dock-tab')) {
+      return;
+    }
+    toggleCollapsed();
+  };
+
   return (
-    <div className={`lazarus-bottom-dock ${internalCollapsed ? 'collapsed' : ''} ${isMaximized ? 'maximized' : ''}`}>
+    <div
+      className={`lazarus-bottom-dock ${internalCollapsed ? 'collapsed' : ''} ${isMaximized ? 'maximized' : ''} ${isResizing ? 'is-resizing' : ''}`}
+      style={{
+        height: internalCollapsed ? undefined : (isMaximized ? undefined : `${dockHeight}px`),
+        maxHeight: internalCollapsed ? undefined : (isMaximized ? undefined : `${dockHeight}px`)
+      }}
+    >
+      {/* Draggable Splitter Bar (Delphi / Lazarus style) */}
+      <div
+        className={`bottom-dock-splitter ${isResizing ? 'resizing' : ''}`}
+        onMouseDown={handleSplitterMouseDown}
+        onDoubleClick={handleSplitterDoubleClick}
+        title="Arrastar com o mouse para esticar/redimensionar área de mensagens (Duplo clique para redefinir para 180px)"
+      >
+        <div className="splitter-grip-indicator" />
+      </div>
+
       {/* Dock Header Tabs */}
-      <div className="bottom-dock-header">
+      <div className="bottom-dock-header" onDoubleClick={handleHeaderDoubleClick}>
         <div className="dock-tabs">
           <button
             className={`dock-tab ${activeTab === 'messages' ? 'active' : ''}`}

@@ -168,4 +168,37 @@ test('Console: cria projeto Console e valida código pascal padrão terminal', a
   expect(codeContent).toContain('Readln');
 });
 
+test('Redimensionamento: splitter da área de mensagens estica painel com mouse e duplo clique redefine altura', async ({ page }) => {
+  const dock = page.locator('.lazarus-bottom-dock');
+  const splitter = page.locator('.bottom-dock-splitter');
+
+  await expect(dock).toBeVisible();
+  await expect(splitter).toBeVisible();
+
+  // 1. Obtém altura inicial (padrão ~180px)
+  const initialBox = await dock.boundingBox();
+  expect(initialBox).not.toBeNull();
+  expect(initialBox!.height).toBeGreaterThan(160);
+  expect(initialBox!.height).toBeLessThan(210);
+
+  // 2. Arrasta splitter para cima (esticar painel com o mouse)
+  const splitterBox = await splitter.boundingBox();
+  expect(splitterBox).not.toBeNull();
+
+  await page.mouse.move(splitterBox!.x + splitterBox!.width / 2, splitterBox!.y + 2);
+  await page.mouse.down();
+  await page.mouse.move(splitterBox!.x + splitterBox!.width / 2, splitterBox!.y - 120);
+  await page.mouse.up();
+
+  // Verifica que a altura esticou com o mouse
+  const expandedBox = await dock.boundingBox();
+  expect(expandedBox).not.toBeNull();
+  expect(expandedBox!.height).toBeGreaterThan(260);
+
+  // 3. Duplo clique no splitter restaura para altura padrão (180px)
+  await splitter.dblclick();
+  await expect(dock).toHaveCSS('height', '180px');
+});
+
+
 
