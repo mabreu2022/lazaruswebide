@@ -1,4 +1,4 @@
-import type { LComponent, LForm, LProjectGroup } from '../types/lazarus';
+import type { LComponent, LForm, LProjectGroup, ProjectType } from '../types/lazarus';
 import { isContainerComponent } from './layoutEngine';
 
 /**
@@ -391,12 +391,153 @@ end.
 }
 
 /**
- * Generates main Lazarus Project (.lpr) file supporting multiple forms, datamodules, and pure units
+ * Generates an authentic Horse (HashLoad/horse) microservice REST API in Free Pascal
+ */
+export function generateHorseLpr(
+  projectName: string = 'ServidorHorse',
+  pureUnits: { unitName: string }[] = []
+): string {
+  const extraUnitUses = pureUnits.length > 0 ? `, ${pureUnits.map(u => u.unitName).join(', ')}` : '';
+
+  return `program ${projectName};
+
+{$mode objfpc}{$H+}
+
+uses
+  {$IFDEF UNIX}
+  cthreads,
+  {$ENDIF}
+  Classes, SysUtils,
+  Horse,
+  Horse.Jhonson${extraUnitUses};
+
+// Procedimento para verificação de status e healthcheck
+procedure DoPing(Req: THorseRequest; Res: THorseResponse; Next: TNextProc);
+begin
+  Res.Send('{"status": "online", "framework": "Horse", "versao": "3.1.5", "timestamp": "' + DateTimeToStr(Now) + '"}');
+end;
+
+// Listagem de clientes da API REST
+procedure GetClientes(Req: THorseRequest; Res: THorseResponse; Next: TNextProc);
+begin
+  Res.Send(
+    '[' +
+    '  {"id": 1, "nome": "Auto Peças Central", "cnpj": "12.345.678/0001-90", "telefone": "(11) 3214-5500"},' +
+    '  {"id": 2, "nome": "Supermercado Estrela", "cnpj": "98.765.432/0001-21", "telefone": "(19) 3871-2244"},' +
+    '  {"id": 3, "nome": "Distribuidora Norte", "cnpj": "45.678.901/0001-33", "telefone": "(81) 3456-7890"}' +
+    ']'
+  );
+end;
+
+// Criação de novo cliente
+procedure PostCliente(Req: THorseRequest; Res: THorseResponse; Next: TNextProc);
+begin
+  // Em produção: ler os parâmetros com Req.Body ou Req.Params
+  Res.Status(201).Send('{"sucesso": true, "mensagem": "Registro cadastrado via Horse API!"}');
+end;
+
+begin
+  // Ativa o middleware JSON Jhonson do Horse
+  THorse.Use(Jhonson);
+
+  // Registro de rotas REST
+  THorse.Get('/ping', @DoPing);
+  THorse.Get('/clientes', @GetClientes);
+  THorse.Post('/clientes', @PostCliente);
+
+  Writeln('========================================================');
+  Writeln('  🐴 Servidor Horse (HashLoad) - Lazarus Web IDE');
+  Writeln('========================================================');
+  Writeln('Servidor REST inicializado com sucesso.');
+  Writeln('Porta de escuta: 9000');
+  Writeln('Rotas disponíveis:');
+  Writeln('  • GET  http://localhost:9000/ping');
+  Writeln('  • GET  http://localhost:9000/clientes');
+  Writeln('  • POST http://localhost:9000/clientes');
+  Writeln('--------------------------------------------------------');
+  Writeln('Aguardando conexões HTTP... (Pressione Ctrl+C para encerrar)');
+
+  // Inicia o servidor HTTP na porta 9000
+  THorse.Listen(9000);
+end.
+`;
+}
+
+/**
+ * Generates standard Free Pascal Console Application (.lpr)
+ */
+export function generateConsoleLpr(
+  projectName: string = 'ConsoleApp',
+  pureUnits: { unitName: string }[] = []
+): string {
+  const extraUnitUses = pureUnits.length > 0 ? `, ${pureUnits.map(u => u.unitName).join(', ')}` : '';
+
+  return `program ${projectName};
+
+{$mode objfpc}{$H+}
+
+uses
+  {$IFDEF UNIX}
+  cthreads,
+  {$ENDIF}
+  Classes, SysUtils${extraUnitUses};
+
+var
+  NomeApp: string;
+begin
+  NomeApp := '${projectName}';
+  Writeln('=============================================');
+  Writeln('  Aplicação Console Free Pascal (FPC 3.2.2)  ');
+  Writeln('=============================================');
+  Writeln('Executando: ', NomeApp);
+  Writeln('Data e hora atual: ', DateTimeToStr(Now));
+  Writeln('---------------------------------------------');
+  Writeln('Processamento em console concluído com sucesso.');
+  Writeln('Pressione ENTER para finalizar...');
+  Readln;
+end.
+`;
+}
+
+/**
+ * Generates boss.json for dependency management (HashLoad Boss package manager)
+ */
+export function generateBossJson(projectName: string = 'ServidorHorse'): string {
+  return JSON.stringify({
+    name: projectName.toLowerCase(),
+    version: '1.0.0',
+    description: 'API REST desenvolvida em Free Pascal com Horse (HashLoad)',
+    main: `${projectName}.lpr`,
+    author: 'Lazarus Web IDE',
+    dependencies: {
+      'github.com/HashLoad/horse': '^3.1.5',
+      'github.com/HashLoad/jhonson': '^1.1.4'
+    }
+  }, null, 2);
+}
+
+/**
+ * Generates main Lazarus Project (.lpr) file supporting GUI, Console, and Horse
  */
 export function generateProjectLpr(
   formsOrMainName: LForm[] | string,
-  pureUnits: { unitName: string }[] = []
+  pureUnits: { unitName: string }[] = [],
+  projectType: ProjectType = 'gui',
+  projectName: string = 'Project1',
+  customLprCode?: string
 ): string {
+  if (customLprCode && customLprCode.trim()) {
+    return customLprCode;
+  }
+
+  if (projectType === 'horse') {
+    return generateHorseLpr(projectName, pureUnits);
+  }
+
+  if (projectType === 'console') {
+    return generateConsoleLpr(projectName, pureUnits);
+  }
+
   const forms: { name: string; unitName: string; isDataModule?: boolean }[] = Array.isArray(formsOrMainName)
     ? formsOrMainName.map(f => ({ name: f.name, unitName: f.unitName || 'Unit1', isDataModule: f.isDataModule }))
     : [{ name: formsOrMainName, unitName: 'Unit1' }];
@@ -411,7 +552,7 @@ export function generateProjectLpr(
     .map(f => `  Application.CreateForm(T${f.name}, ${f.name});`)
     .join('\n');
 
-  return `program Project1;
+  return `program ${projectName};
 
 {$mode objfpc}{$H+}
 
@@ -440,8 +581,65 @@ end.
 export function generateLPI(
   projectName: string,
   forms: LForm[],
-  pureUnits: { unitName: string }[] = []
+  pureUnits: { unitName: string }[] = [],
+  projectType: ProjectType = 'gui'
 ): string {
+  if (projectType === 'console' || projectType === 'horse') {
+    let unitIndex = 1;
+    const pureUnitsXml = pureUnits.map((u) => {
+      const xml = `      <Unit${unitIndex}>
+        <Filename Value="${u.unitName}.pas"/>
+        <IsPartOfProject Value="True"/>
+        <HasResources Value="False"/>
+      </Unit${unitIndex}>`;
+      unitIndex++;
+      return xml;
+    }).join('\n');
+
+    const totalUnits = 1 + pureUnits.length;
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="12"/>
+    <General>
+      <Flags>
+        <MainUnitHasCreateFormStatements Value="False"/>
+        <MainUnitHasTitleStatement Value="False"/>
+        <MainUnitHasScaledStatement Value="False"/>
+        <CompatibilityMode Value="True"/>
+      </Flags>
+      <SessionStorage Value="InProjectDir"/>
+      <Title Value="${projectName}"/>
+      <UseAppBundle Value="False"/>
+      <ResourceType Value="res"/>
+    </General>
+    <Units Count="${totalUnits}">
+      <Unit0>
+        <Filename Value="${projectName}.lpr"/>
+        <IsPartOfProject Value="True"/>
+      </Unit0>
+${pureUnitsXml ? pureUnitsXml + '\n' : ''}    </Units>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <Target>
+      <Filename Value="${projectName}"/>
+    </Target>
+    <SearchPaths>
+      <IncludeFiles Value="$(ProjOutDir)"/>
+      <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
+    </SearchPaths>
+    <Linking>
+      <Debugging>
+        <GenerateDebugInfo Value="False"/>
+      </Debugging>
+    </Linking>
+  </CompilerOptions>
+</CONFIG>
+`;
+  }
+
   let unitIndex = 1;
   const formsXml = forms.map((f) => {
     const xml = `      <Unit${unitIndex}>

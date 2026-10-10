@@ -1,4 +1,77 @@
-import type { LForm } from '../types/lazarus';
+import type { LForm, LProject } from '../types/lazarus';
+import { generateHorseLpr, generateConsoleLpr } from '../utils/pascalGenerator';
+
+export function getSampleHorseProject(): LProject {
+  const lpr = generateHorseLpr('ServidorHorse', [{ unitName: 'UClientesController' }]);
+  const controllerCode = `unit UClientesController;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, Horse;
+
+procedure RegistrarRotas;
+procedure ListarClientes(Req: THorseRequest; Res: THorseResponse; Next: TNextProc);
+
+implementation
+
+procedure ListarClientes(Req: THorseRequest; Res: THorseResponse; Next: TNextProc);
+begin
+  Res.Send('[' +
+    '{"id": 1, "nome": "Auto Peças Central", "cnpj": "12.345.678/0001-90", "telefone": "(11) 3214-5500"},' +
+    '{"id": 2, "nome": "Supermercado Estrela", "cnpj": "98.765.432/0001-21", "telefone": "(19) 3871-2244"}' +
+  ']');
+end;
+
+procedure RegistrarRotas;
+begin
+  THorse.Get('/api/v1/clientes', @ListarClientes);
+end;
+
+end.
+`;
+
+  return {
+    id: 'proj_horse_1',
+    name: 'ServidorHorse',
+    projectType: 'horse',
+    fileName: 'ServidorHorse.lpi',
+    lprFileName: 'ServidorHorse.lpr',
+    forms: [],
+    pureUnits: [
+      {
+        id: 'unit_ctrl_1',
+        name: 'UClientesController',
+        unitName: 'UClientesController',
+        fileName: 'uclientescontroller.pas',
+        code: controllerCode
+      }
+    ],
+    activeFormId: '',
+    openFiles: ['servidorhorse.lpr', 'uclientescontroller.pas'],
+    activeCodeFile: 'servidorhorse.lpr',
+    customLprCode: lpr
+  };
+}
+
+export function getSampleConsoleProject(): LProject {
+  const lpr = generateConsoleLpr('ConsoleApp');
+  return {
+    id: 'proj_console_1',
+    name: 'ConsoleApp',
+    projectType: 'console',
+    fileName: 'ConsoleApp.lpi',
+    lprFileName: 'ConsoleApp.lpr',
+    forms: [],
+    pureUnits: [],
+    activeFormId: '',
+    openFiles: ['consoleapp.lpr'],
+    activeCodeFile: 'consoleapp.lpr',
+    customLprCode: lpr
+  };
+}
 
 export function getSampleProject(type: 'calc' | 'login' | 'crud' | 'firebird'): LForm {
   if (type === 'firebird') {

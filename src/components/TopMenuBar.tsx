@@ -17,18 +17,22 @@ import {
   Sparkles,
   FolderOpen,
   Save,
-  Database
+  Database,
+  Terminal
 } from 'lucide-react';
-import type { IDEState } from '../types/lazarus';
+import type { IDEState, ProjectType } from '../types/lazarus';
 
 interface TopMenuBarProps {
   state: IDEState;
+  projectName?: string;
+  projectType?: ProjectType;
   onRun: () => void;
   onStop: () => void;
   onToggleFormCode: () => void;
   onToggleTheme: () => void;
   onToggleSnapGrid: () => void;
   onChangeGridSize: (size: number) => void;
+  onNewProject?: (type: ProjectType) => void;
   onNewForm: () => void;
   onNewDataModule: () => void;
   onNewPureUnit: () => void;
@@ -39,23 +43,26 @@ interface TopMenuBarProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  onOpenSample: (sampleType: 'calc' | 'crud' | 'login' | 'firebird') => void;
+  onOpenSample: (sampleType: 'calc' | 'crud' | 'login' | 'firebird' | 'horse') => void;
   onToggleProjectInspector?: () => void;
   isProjectInspectorOpen?: boolean;
   onNewProjectGroup?: () => void;
-  onAddProjectToGroup?: () => void;
+  onAddProjectToGroup?: (type?: ProjectType) => void;
   onSaveProjectGroup?: () => void;
   onExportProjectGroup?: () => void;
 }
 
 export const TopMenuBar: React.FC<TopMenuBarProps> = ({
   state,
+  projectName = 'Project1',
+  projectType = 'gui',
   onRun,
   onStop,
   onToggleFormCode,
   onToggleTheme,
   onToggleSnapGrid,
   onChangeGridSize,
+  onNewProject,
   onNewForm,
   onNewDataModule,
   onNewPureUnit,
@@ -105,6 +112,17 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
               </button>
               {activeMenu === 'file' && (
                 <div className="menu-dropdown">
+                  <div className="dropdown-submenu-header">Novo Projeto:</div>
+                  <div className="dropdown-action" onClick={() => { onNewProject?.('gui'); closeMenu(); }}>
+                    <Layout size={14} className="icon-blue" /> Aplicação Visual (GUI / LCL)
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onNewProject?.('console'); closeMenu(); }}>
+                    <Terminal size={14} className="icon-orange" /> Aplicação Console (Terminal)
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onNewProject?.('horse'); closeMenu(); }}>
+                    <Sparkles size={14} className="icon-green" /> Servidor REST Horse (HashLoad)
+                  </div>
+                  <div className="dropdown-divider" />
                   <div className="dropdown-action" onClick={() => { onNewForm(); closeMenu(); }}>
                     <Plus size={14} /> Novo Formulário <span className="shortcut">Ctrl+N</span>
                   </div>
@@ -126,6 +144,9 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
                   </div>
                   <div className="dropdown-divider" />
                   <div className="dropdown-submenu-header">Modelos de Exemplo:</div>
+                  <div className="dropdown-action" onClick={() => { onOpenSample('horse'); closeMenu(); }}>
+                    <Terminal size={14} className="icon-green" /> 🐴 Horse REST API (HashLoad)
+                  </div>
                   <div className="dropdown-action" onClick={() => { onOpenSample('firebird'); closeMenu(); }}>
                     <Layers size={14} /> Firebird 5.0 + Zeos (CRUD)
                   </div>
@@ -210,6 +231,35 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
                   }}
                 >
                   <FolderOpen size={14} className="icon-blue" /> Inspetor de Projetos <span className="shortcut">Ctrl+F11</span>
+                </div>
+                <div className="dropdown-divider" />
+                <div className="dropdown-submenu-header">Novo Projeto:</div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onAddProjectToGroup?.('gui');
+                    closeMenu();
+                  }}
+                >
+                  <Layout size={14} className="icon-blue" /> Nova Aplicação Visual (GUI)
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onAddProjectToGroup?.('console');
+                    closeMenu();
+                  }}
+                >
+                  <Terminal size={14} className="icon-orange" /> Nova Aplicação Console
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onAddProjectToGroup?.('horse');
+                    closeMenu();
+                  }}
+                >
+                  <Sparkles size={14} className="icon-green" /> Novo Servidor REST Horse
                 </div>
                 <div className="dropdown-divider" />
                 <div
@@ -345,7 +395,22 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
       {/* Quick info right side */}
       <div className="topbar-right-zone">
         <span className="project-title">
-          Project1.lpi - [{state.form.name}: T{state.form.name}]
+          {(() => {
+            const activeProj = state.projects?.find(p => p.id === state.activeProjectId) || state.projects?.[0];
+            const pType = activeProj?.projectType || projectType;
+            const pName = activeProj?.name || projectName;
+            return (
+              <>
+                {pName}.lpi - [
+                {pType === 'horse'
+                  ? '🐴 Horse REST API'
+                  : pType === 'console'
+                  ? 'Aplicação Console'
+                  : state.form ? `${state.form.name}: T${state.form.name}` : pName}
+                ]
+              </>
+            );
+          })()}
         </span>
         <div className="cheetah-badge">
           <Sparkles size={13} className="badge-icon" />
@@ -466,6 +531,14 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
         {/* Sample Templates quick buttons */}
         <div className="tool-group samples-group">
           <span className="tool-label">Exemplos:</span>
+          <button
+            className="sample-quick-btn sample-highlight"
+            onClick={() => onOpenSample('horse')}
+            title="Carregar projeto Horse REST API (HashLoad)"
+            style={{ borderColor: '#10b981', color: '#10b981' }}
+          >
+            🐴 Horse REST
+          </button>
           <button
             className="sample-quick-btn sample-highlight"
             onClick={() => onOpenSample('firebird')}

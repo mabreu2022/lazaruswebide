@@ -8,7 +8,8 @@ import type {
   IDEState,
   ConsoleMessage,
   LProject,
-  LProjectGroup
+  LProjectGroup,
+  ProjectType
 } from './types/lazarus';
 import { COMPONENT_DEFINITIONS } from './data/componentRegistry';
 import { TopMenuBar } from './components/TopMenuBar';
@@ -19,14 +20,18 @@ import { CodeEditor } from './components/CodeEditor';
 import { BottomConsole } from './components/BottomConsole';
 import { StandaloneRunner } from './components/StandaloneRunner';
 import { ProjectInspector } from './components/ProjectInspector';
-import { getSampleProject } from './data/sampleProjects';
+import { HorseConsoleRunner } from './components/HorseConsoleRunner';
+import { getSampleProject, getSampleHorseProject, getSampleConsoleProject } from './data/sampleProjects';
 import {
   generateUnitPas,
   generateLFM,
   generateProjectLpr,
   generateLPI,
   generatePureUnitPas,
-  generateLPG
+  generateLPG,
+  generateHorseLpr,
+  generateConsoleLpr,
+  generateBossJson
 } from './utils/pascalGenerator';
 import {
   FileCode,
@@ -37,7 +42,10 @@ import {
   Layout,
   Copy,
   Check,
-  Database
+  Database,
+  Terminal,
+  Sparkles,
+  Play
 } from 'lucide-react';
 import { removeWithDescendants } from './utils/componentTree';
 import './App.css';
@@ -107,17 +115,93 @@ const INITIAL_FORM: LForm = {
   ]
 };
 
-const createInitialProject = (name = 'Project1', id = 'proj_1'): LProject => ({
-  id,
-  name,
-  fileName: `${name}.lpi`,
-  lprFileName: `${name}.lpr`,
-  forms: [{ ...INITIAL_FORM, unitName: 'Unit1' }],
-  pureUnits: [],
-  activeFormId: INITIAL_FORM.id,
-  openFiles: ['unit1.pas', 'unit1.lfm'],
-  activeCodeFile: 'unit1.pas'
-});
+const createInitialProject = (name = 'Project1', id = 'proj_1', type: ProjectType = 'gui'): LProject => {
+  if (type === 'horse') {
+    const lpr = generateHorseLpr(name, [{ unitName: 'UController' }]);
+    const controllerCode = `unit UController;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, Horse;
+
+procedure RegistrarRotas;
+
+implementation
+
+procedure RegistrarRotas;
+begin
+  THorse.Get('/ping', procedure(Req: THorseRequest; Res: THorseResponse; Next: TNextProc)
+  begin
+    Res.Send('{"status": "pong", "framework": "Horse", "timestamp": "' + FormatDateTime('yyyy-mm-dd hh:nn:ss', Now) + '"}');
+  end);
+
+  THorse.Get('/api/v1/clientes', procedure(Req: THorseRequest; Res: THorseResponse; Next: TNextProc)
+  begin
+    Res.Send('[' +
+      '{"id": 1, "nome": "Auto Peças Central", "cnpj": "12.345.678/0001-90", "telefone": "(11) 3214-5500"},' +
+      '{"id": 2, "nome": "Supermercado Estrela", "cnpj": "98.765.432/0001-21", "telefone": "(19) 3871-2244"}' +
+    ']');
+  end);
+end;
+
+end.
+`;
+    return {
+      id,
+      name,
+      projectType: 'horse',
+      fileName: `${name}.lpi`,
+      lprFileName: `${name}.lpr`,
+      forms: [],
+      pureUnits: [
+        {
+          id: `unit_${Date.now()}`,
+          name: 'UController',
+          unitName: 'UController',
+          fileName: 'ucontroller.pas',
+          code: controllerCode
+        }
+      ],
+      activeFormId: '',
+      openFiles: [`${name.toLowerCase()}.lpr`, 'ucontroller.pas'],
+      activeCodeFile: `${name.toLowerCase()}.lpr`,
+      customLprCode: lpr
+    };
+  }
+
+  if (type === 'console') {
+    const lpr = generateConsoleLpr(name);
+    return {
+      id,
+      name,
+      projectType: 'console',
+      fileName: `${name}.lpi`,
+      lprFileName: `${name}.lpr`,
+      forms: [],
+      pureUnits: [],
+      activeFormId: '',
+      openFiles: [`${name.toLowerCase()}.lpr`],
+      activeCodeFile: `${name.toLowerCase()}.lpr`,
+      customLprCode: lpr
+    };
+  }
+
+  return {
+    id,
+    name,
+    projectType: 'gui',
+    fileName: `${name}.lpi`,
+    lprFileName: `${name}.lpr`,
+    forms: [{ ...INITIAL_FORM, unitName: 'Unit1' }],
+    pureUnits: [],
+    activeFormId: INITIAL_FORM.id,
+    openFiles: ['unit1.pas', 'unit1.lfm'],
+    activeCodeFile: 'unit1.pas'
+  };
+};
 
 export const App: React.FC = () => {
   // Check if opened as standalone execution window
@@ -157,7 +241,7 @@ const LazarusIDE: React.FC = () => {
   ]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  const form = forms.find(f => f.id === activeFormId) || forms[0];
+  const form = forms.find(f => f.id === activeFormId) || forms[0] || { ...INITIAL_FORM, unitName: 'Unit1' };
 
   const setForm = useCallback((updaterOrNew: LForm | ((prev: LForm) => LForm)) => {
     setForms(prevForms => {
@@ -188,6 +272,7 @@ const LazarusIDE: React.FC = () => {
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isHorseRunnerOpen, setIsHorseRunnerOpen] = useState<boolean>(false);
   const [isConsoleCollapsed, setIsConsoleCollapsed] = useState<boolean>(false);
 
   const [activeEventToEdit, setActiveEventToEdit] = useState<{
@@ -888,13 +973,14 @@ const LazarusIDE: React.FC = () => {
     try {
       const currentProject = projectGroup.projects.find(p => p.id === projectGroup.activeProjectId) || projectGroup.projects[0];
       const projName = currentProject ? currentProject.name : 'Project1';
+      const projType: ProjectType = currentProject?.projectType || 'gui';
       const zip = new JSZip();
 
       // 1. Project file: e.g. Project1.lpr
-      zip.file(`${projName}.lpr`, generateProjectLpr(forms, pureUnits));
+      zip.file(`${projName}.lpr`, generateProjectLpr(forms, pureUnits, projType, projName, currentProject?.customLprCode));
 
       // 2. Project information: e.g. Project1.lpi
-      zip.file(`${projName}.lpi`, generateLPI(projName, forms, pureUnits));
+      zip.file(`${projName}.lpi`, generateLPI(projName, forms, pureUnits, projType));
 
       // 3. For each form in project, export both .pas and .lfm
       forms.forEach(f => {
@@ -908,6 +994,11 @@ const LazarusIDE: React.FC = () => {
         zip.file(u.fileName, u.code);
       });
 
+      // 5. If Horse project, include boss.json
+      if (projType === 'horse') {
+        zip.file('boss.json', generateBossJson(projName));
+      }
+
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -916,7 +1007,7 @@ const LazarusIDE: React.FC = () => {
       a.click();
       URL.revokeObjectURL(url);
 
-      addConsoleLog(`Projeto '${projName}' exportado com sucesso: ${projName}.zip contendo units (.pas), formulários (.lfm) e arquivos de projeto (.lpr / .lpi).`, 'success');
+      addConsoleLog(`Projeto '${projName}' exportado com sucesso: ${projName}.zip contendo units (.pas), arquivos de projeto (.lpr / .lpi)${projType === 'horse' ? ' e boss.json' : ''}.`, 'success');
     } catch (err) {
       addConsoleLog(`Erro ao gerar arquivo zip de exportação: ${String(err)}`, 'error');
     }
@@ -947,15 +1038,22 @@ const LazarusIDE: React.FC = () => {
       // 3. Load target project into working state
       setForms(targetProj.forms);
       setPureUnits(targetProj.pureUnits || []);
-      setActiveFormId(targetProj.activeFormId || targetProj.forms[0]?.id || 'form1');
+      setActiveFormId(targetProj.activeFormId || targetProj.forms[0]?.id || '');
       const targetOpenFiles = targetProj.openFiles && targetProj.openFiles.length > 0
         ? targetProj.openFiles
-        : [`${(targetProj.forms[0]?.unitName || 'Unit1').toLowerCase()}.pas`, `${(targetProj.forms[0]?.unitName || 'Unit1').toLowerCase()}.lfm`];
+        : (targetProj.projectType !== 'gui'
+            ? [`${targetProj.name.toLowerCase()}.lpr`]
+            : [`${(targetProj.forms[0]?.unitName || 'Unit1').toLowerCase()}.pas`, `${(targetProj.forms[0]?.unitName || 'Unit1').toLowerCase()}.lfm`]);
       setOpenCodeFiles(targetOpenFiles);
       setActiveCodeFile(targetProj.activeCodeFile || targetOpenFiles[0]);
       setSelectedComponentIds([]);
 
-      addConsoleLog(`[Grupo de Projetos] Projeto ativo alterado para "${targetProj.name}" (${targetProj.fileName})`, 'info');
+      if (targetProj.projectType !== 'gui') {
+        setActiveTab('code');
+      }
+
+      const typeBadge = targetProj.projectType === 'horse' ? ' (🐴 Horse REST)' : (targetProj.projectType === 'console' ? ' (📟 Console)' : ' (GUI)');
+      addConsoleLog(`[Grupo de Projetos] Projeto ativo alterado para "${targetProj.name}"${typeBadge}`, 'info');
 
       return {
         ...prevGroup,
@@ -965,14 +1063,49 @@ const LazarusIDE: React.FC = () => {
     });
   }, [forms, pureUnits, activeFormId, openCodeFiles, activeCodeFile, addConsoleLog]);
 
+  // Create a brand new project
+  const handleNewProject = useCallback((type: ProjectType = 'gui') => {
+    let defaultName = 'Project1';
+    if (type === 'horse') defaultName = 'HorseApp';
+    else if (type === 'console') defaultName = 'ConsoleApp';
+    const projId = `proj_${Date.now()}`;
+    const freshProj = createInitialProject(defaultName, projId, type);
+
+    const newGroup: LProjectGroup = {
+      id: `group_${Date.now()}`,
+      name: 'ProjectGroup1',
+      fileName: 'ProjectGroup1.lpg',
+      projects: [freshProj],
+      activeProjectId: freshProj.id
+    };
+
+    setProjectGroup(newGroup);
+    setForms(freshProj.forms);
+    setPureUnits(freshProj.pureUnits);
+    setActiveFormId(freshProj.activeFormId);
+    setOpenCodeFiles(freshProj.openFiles || [`${defaultName.toLowerCase()}.lpr`]);
+    setActiveCodeFile(freshProj.activeCodeFile || `${defaultName.toLowerCase()}.lpr`);
+    setSelectedComponentIds([]);
+
+    if (type !== 'gui') {
+      setActiveTab('code');
+    } else {
+      setActiveTab('form');
+    }
+
+    const typeDesc = type === 'horse' ? 'Servidor REST Horse (HashLoad)' : (type === 'console' ? 'Aplicação Console' : 'Aplicação Visual (GUI)');
+    addConsoleLog(`[Projeto] Novo projeto iniciado: ${defaultName} (${typeDesc})`, 'success');
+  }, [addConsoleLog]);
+
   // Add a new project to the current project group
-  const handleAddProjectToGroup = useCallback(() => {
+  const handleAddProjectToGroup = useCallback((type: ProjectType = 'gui') => {
     setProjectGroup(prevGroup => {
+      let basePrefix = type === 'horse' ? 'HorseApp' : (type === 'console' ? 'ConsoleApp' : 'Project');
       let nextNum = prevGroup.projects.length + 1;
-      while (prevGroup.projects.some(p => p.name.toLowerCase() === `project${nextNum}`.toLowerCase())) {
+      while (prevGroup.projects.some(p => p.name.toLowerCase() === `${basePrefix.toLowerCase()}${nextNum}`)) {
         nextNum++;
       }
-      const projName = `Project${nextNum}`;
+      const projName = `${basePrefix}${nextNum}`;
       const projId = `proj_${Date.now()}`;
 
       // Save current project state
@@ -990,18 +1123,25 @@ const LazarusIDE: React.FC = () => {
         return proj;
       });
 
-      const newProj = createInitialProject(projName, projId);
+      const newProj = createInitialProject(projName, projId, type);
       updatedProjects.push(newProj);
 
       // Switch immediately to new project
       setForms(newProj.forms);
       setPureUnits(newProj.pureUnits);
       setActiveFormId(newProj.activeFormId);
-      setOpenCodeFiles(newProj.openFiles || ['unit1.pas', 'unit1.lfm']);
-      setActiveCodeFile(newProj.activeCodeFile || 'unit1.pas');
+      setOpenCodeFiles(newProj.openFiles || [`${projName.toLowerCase()}.lpr`]);
+      setActiveCodeFile(newProj.activeCodeFile || `${projName.toLowerCase()}.lpr`);
       setSelectedComponentIds([]);
 
-      addConsoleLog(`[Grupo de Projetos] Novo projeto adicionado ao grupo: ${projName} (${projName}.lpi)`, 'success');
+      if (type !== 'gui') {
+        setActiveTab('code');
+      } else {
+        setActiveTab('form');
+      }
+
+      const typeDesc = type === 'horse' ? 'Servidor REST Horse' : (type === 'console' ? 'Aplicação Console' : 'Aplicação Visual (GUI)');
+      addConsoleLog(`[Grupo de Projetos] Novo projeto adicionado ao grupo: ${projName} (${typeDesc})`, 'success');
 
       return {
         ...prevGroup,
@@ -1131,8 +1271,9 @@ const LazarusIDE: React.FC = () => {
       // 2. Each project in its own folder
       updatedGroup.projects.forEach(proj => {
         const folder = zip.folder(proj.name) || zip;
-        folder.file(`${proj.name}.lpr`, generateProjectLpr(proj.forms, proj.pureUnits));
-        folder.file(`${proj.name}.lpi`, generateLPI(proj.name, proj.forms, proj.pureUnits));
+        const pType = proj.projectType || 'gui';
+        folder.file(`${proj.name}.lpr`, generateProjectLpr(proj.forms, proj.pureUnits, pType, proj.name, proj.customLprCode));
+        folder.file(`${proj.name}.lpi`, generateLPI(proj.name, proj.forms, proj.pureUnits, pType));
 
         proj.forms.forEach(f => {
           const uName = f.unitName || 'Unit1';
@@ -1143,6 +1284,10 @@ const LazarusIDE: React.FC = () => {
         (proj.pureUnits || []).forEach(u => {
           folder.file(u.fileName, u.code);
         });
+
+        if (pType === 'horse') {
+          folder.file('boss.json', generateBossJson(proj.name));
+        }
       });
 
       const blob = await zip.generateAsync({ type: 'blob' });
@@ -1172,7 +1317,8 @@ const LazarusIDE: React.FC = () => {
       if (pure) {
         content = pure.code;
       } else if (fileName.endsWith('.lpr')) {
-        content = generateProjectLpr(forms, pureUnits);
+        const curProj = projectGroup.projects.find(p => p.id === projectGroup.activeProjectId) || projectGroup.projects[0];
+        content = generateProjectLpr(forms, pureUnits, curProj?.projectType || 'gui', curProj?.name || 'Project1', curProj?.customLprCode);
       } else if (fileName.endsWith('.lfm')) {
         const targetForm = forms.find(f => (f.unitName || '').toLowerCase() === fileName.replace('.lfm', '').toLowerCase()) || form;
         content = generateLFM(targetForm);
@@ -1223,7 +1369,8 @@ const LazarusIDE: React.FC = () => {
     if (pure) {
       code = pure.code;
     } else if (lower.endsWith('.lpr')) {
-      code = generateProjectLpr(forms, pureUnits);
+      const curProj = projectGroup.projects.find(p => p.id === projectGroup.activeProjectId) || projectGroup.projects[0];
+      code = generateProjectLpr(forms, pureUnits, curProj?.projectType || 'gui', curProj?.name || 'Project1', curProj?.customLprCode);
     } else if (lower.endsWith('.lfm')) {
       code = generateLFM(form);
     } else {
@@ -1235,43 +1382,120 @@ const LazarusIDE: React.FC = () => {
   }, [activeCodeFile, form, forms, pureUnits]);
 
   // Open sample project
-  const handleOpenSample = useCallback((type: 'calc' | 'login' | 'crud' | 'firebird') => {
+  const handleOpenSample = useCallback((type: 'calc' | 'login' | 'crud' | 'firebird' | 'horse' | 'console') => {
+    if (type === 'horse') {
+      const horseProj = getSampleHorseProject();
+      setProjectGroup(prevGroup => ({
+        ...prevGroup,
+        projects: [horseProj],
+        activeProjectId: horseProj.id
+      }));
+      setForms(horseProj.forms);
+      setPureUnits(horseProj.pureUnits);
+      setActiveFormId(horseProj.activeFormId);
+      setOpenCodeFiles(horseProj.openFiles || ['servidorhorse.lpr', 'uclientescontroller.pas']);
+      setActiveCodeFile(horseProj.activeCodeFile || 'servidorhorse.lpr');
+      setActiveTab('code');
+      setSelectedComponentIds([]);
+      addConsoleLog('Modelo de exemplo carregado: Servidor REST Horse (HashLoad)', 'success');
+      return;
+    }
+
+    if (type === 'console') {
+      const consoleProj = getSampleConsoleProject();
+      setProjectGroup(prevGroup => ({
+        ...prevGroup,
+        projects: [consoleProj],
+        activeProjectId: consoleProj.id
+      }));
+      setForms(consoleProj.forms);
+      setPureUnits(consoleProj.pureUnits);
+      setActiveFormId(consoleProj.activeFormId);
+      setOpenCodeFiles(consoleProj.openFiles || ['consoleapp.lpr']);
+      setActiveCodeFile(consoleProj.activeCodeFile || 'consoleapp.lpr');
+      setActiveTab('code');
+      setSelectedComponentIds([]);
+      addConsoleLog('Modelo de exemplo carregado: Aplicação Console', 'success');
+      return;
+    }
+
     const sample = getSampleProject(type);
     const sampleForm: LForm = {
       ...sample,
       unitName: 'Unit1'
     };
+    const sampleProj: LProject = {
+      id: `proj_${Date.now()}`,
+      name: 'Project1',
+      projectType: 'gui',
+      fileName: 'Project1.lpi',
+      lprFileName: 'Project1.lpr',
+      forms: [sampleForm],
+      pureUnits: [],
+      activeFormId: sampleForm.id,
+      openFiles: ['unit1.pas', 'unit1.lfm'],
+      activeCodeFile: 'unit1.pas'
+    };
+    setProjectGroup(prevGroup => ({
+      ...prevGroup,
+      projects: [sampleProj],
+      activeProjectId: sampleProj.id
+    }));
     setForms([sampleForm]);
     setActiveFormId(sampleForm.id);
     setHistory([sampleForm]);
     setHistoryIndex(0);
     setSelectedComponentIds([]);
+    setOpenCodeFiles(['unit1.pas', 'unit1.lfm']);
     setActiveCodeFile('unit1.pas');
+    setActiveTab('form');
     addConsoleLog(`Modelo de exemplo carregado: ${sample.caption}`, 'success');
   }, [addConsoleLog]);
 
-  // Compile and run application in a new browser window (F9)
+  // Compile and run application (F9)
   const handleRun = useCallback(() => {
     // 1. Expand terminal / messages dock
     setIsConsoleCollapsed(false);
 
-    // 2. Persist current form state for runner
-    localStorage.setItem('lazarus_runtime_form', JSON.stringify(form));
+    const activeProject = projectGroup.projects.find(p => p.id === projectGroup.activeProjectId) || projectGroup.projects[0];
+    const projType = activeProject?.projectType || 'gui';
+    const projName = activeProject?.name || 'Project1';
 
-    // 3. FPC Compiler logs streamed to Messages dock
+    // 2. FPC Compiler logs streamed to Messages dock
     addConsoleLog(`Free Pascal Compiler version 3.2.2 [2026/10/09] for x86_64`, 'info');
     addConsoleLog(`Copyright (c) 1993-2026 by Florian Klaempfl and others`, 'info');
+
+    if (projType === 'horse' || projType === 'console') {
+      addConsoleLog(`Compilando ${projName}.lpr (${projType === 'horse' ? 'HashLoad Horse Microservice' : 'Terminal Console'})...`, 'info');
+      (activeProject.pureUnits || []).forEach(u => {
+        addConsoleLog(`Compilando unit ${u.fileName}...`, 'info');
+      });
+      if (projType === 'horse') {
+        addConsoleLog(`Dependências ativas: horse (HashLoad/horse), horse-jhonson (HashLoad/jhonson)`, 'info');
+        addConsoleLog(`Iniciando servidor HTTP Horse na porta 9000...`, 'info');
+      }
+      addConsoleLog(`[Sucesso] Compilação finalizada (0 erros, 0 avisos).`, 'success');
+      addConsoleLog(`[Execução] Abrindo Console Interativo / Testador REST na IDE...`, 'success');
+      setIsHorseRunnerOpen(true);
+      setIsRunning(true);
+      return;
+    }
+
+    // GUI application execution
     forms.forEach(f => {
       addConsoleLog(`Compilando ${f.unitName || 'Unit1'}.pas (${f.name}) ...`, 'info');
     });
-    addConsoleLog(`Compilando Project1.lpr ...`, 'info');
+    addConsoleLog(`Compilando ${projName}.lpr ...`, 'info');
     addConsoleLog(`Ligador: Vinculando recursos LCL Widgetset...`, 'info');
     addConsoleLog(`[Sucesso] Compilação finalizada (0 erros, 0 avisos).`, 'success');
     addConsoleLog(`[Execução] Abrindo aplicação em nova janela do navegador...`, 'success');
 
-    // 4. Open in new browser window matching form client dimensions
-    const popupWidth = Math.max(form.width, 320);
-    const popupHeight = Math.max(form.height + 32, 240);
+    if (!form) return;
+
+    localStorage.setItem('lazarus_runtime_form', JSON.stringify(form));
+
+    const popupWidth = Math.max(form.width || 400, 320);
+    const popupHeight = Math.max((form.height || 300) + 32, 240);
     const popupLeft = Math.max(40, window.screenX + 120);
     const popupTop = Math.max(40, window.screenY + 100);
 
@@ -1289,12 +1513,13 @@ const LazarusIDE: React.FC = () => {
     } else {
       addConsoleLog('[Aviso] Popup bloqueado pelo navegador. Por favor permita popups para este site.', 'warning');
     }
-  }, [form, forms, addConsoleLog]);
+  }, [form, forms, projectGroup, addConsoleLog]);
 
   const handleStop = useCallback(() => {
     if (runnerWindowRef.current && !runnerWindowRef.current.closed) {
       runnerWindowRef.current.close();
     }
+    setIsHorseRunnerOpen(false);
     setIsRunning(false);
     addConsoleLog('[Execução] Processo finalizado pelo usuário na IDE (Stop).', 'info');
   }, [addConsoleLog]);
@@ -1319,6 +1544,7 @@ const LazarusIDE: React.FC = () => {
 
   const currentProject = projectGroup.projects.find(p => p.id === projectGroup.activeProjectId) || projectGroup.projects[0];
   const activeProjectName = currentProject ? currentProject.name : 'Project1';
+  const activeProjectType: ProjectType = currentProject?.projectType || 'gui';
 
   const ideState: IDEState = {
     form,
@@ -1346,6 +1572,8 @@ const LazarusIDE: React.FC = () => {
       {/* Top Menu Bar & Actions */}
       <TopMenuBar
         state={ideState}
+        projectName={activeProjectName}
+        projectType={activeProjectType}
         onRun={handleRun}
         onStop={handleStop}
         onToggleFormCode={handleToggleFormCode}
@@ -1355,6 +1583,7 @@ const LazarusIDE: React.FC = () => {
           setShowGrid(g => !g);
         }}
         onChangeGridSize={setGridSize}
+        onNewProject={handleNewProject}
         onNewForm={handleNewForm}
         onNewDataModule={handleNewDataModule}
         onNewPureUnit={handleNewPureUnit}
@@ -1515,25 +1744,61 @@ const LazarusIDE: React.FC = () => {
 
           {/* Center Workspace (FormDesigner or CodeEditor fills full height directly) */}
           {activeTab === 'form' ? (
-            <FormDesigner
-              form={form}
-              selectedComponentIds={selectedComponentIds}
-              selectedPaletteComponent={selectedPaletteComponent}
-              gridSize={gridSize}
-              snapToGrid={snapToGrid}
-              showGrid={showGrid}
-              onSelectComponent={handleSelectComponent}
-              onSelectForm={handleSelectForm}
-              onAddComponent={handleAddComponent}
-              onUpdateComponent={handleUpdateComponent}
-              onUpdateForm={handleUpdateForm}
-              onDeleteComponents={handleDeleteComponents}
-              onDuplicateComponent={handleDuplicateComponent}
-              onBringToFront={handleBringToFront}
-              onSendToBack={handleSendToBack}
-              onDoubleClickComponent={handleDoubleClickComponent}
-              onToggleFormCode={handleToggleFormCode}
-            />
+            activeProjectType !== 'gui' ? (
+              <div className="console-project-empty-designer">
+                <div className="console-designer-card">
+                  {activeProjectType === 'horse' ? (
+                    <Sparkles size={48} className="console-card-icon icon-green" />
+                  ) : (
+                    <Terminal size={48} className="console-card-icon icon-orange" />
+                  )}
+                  <h3>
+                    {activeProjectType === 'horse'
+                      ? `Servidor REST Horse: ${activeProjectName}`
+                      : `Aplicação Console: ${activeProjectName}`}
+                  </h3>
+                  <p>
+                    {activeProjectType === 'horse'
+                      ? 'Projetos de API REST Horse operam como serviços de backend HTTP sem formulários visuais LCL. O fluxo de rotas, middlewares (Jhonson/JSON) e controladores são definidos no código Pascal.'
+                      : 'Aplicações do tipo Console executam diretamente no terminal e não possuem formulários visuais LCL (GUI).'}
+                  </p>
+                  <div className="console-designer-actions">
+                    <button
+                      className="btn-ide btn-primary"
+                      onClick={() => setActiveTab('code')}
+                    >
+                      <Code2 size={16} /> Ver Código Fonte (F12)
+                    </button>
+                    <button
+                      className="btn-ide btn-success"
+                      onClick={handleRun}
+                    >
+                      <Play size={16} /> {activeProjectType === 'horse' ? 'Executar Servidor REST (F9)' : 'Executar no Console (F9)'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <FormDesigner
+                form={form}
+                selectedComponentIds={selectedComponentIds}
+                selectedPaletteComponent={selectedPaletteComponent}
+                gridSize={gridSize}
+                snapToGrid={snapToGrid}
+                showGrid={showGrid}
+                onSelectComponent={handleSelectComponent}
+                onSelectForm={handleSelectForm}
+                onAddComponent={handleAddComponent}
+                onUpdateComponent={handleUpdateComponent}
+                onUpdateForm={handleUpdateForm}
+                onDeleteComponents={handleDeleteComponents}
+                onDuplicateComponent={handleDuplicateComponent}
+                onBringToFront={handleBringToFront}
+                onSendToBack={handleSendToBack}
+                onDoubleClickComponent={handleDoubleClickComponent}
+                onToggleFormCode={handleToggleFormCode}
+              />
+            )
           ) : (
             <CodeEditor
               form={form}
@@ -1542,6 +1807,9 @@ const LazarusIDE: React.FC = () => {
               activeFile={activeCodeFile}
               openFiles={openCodeFiles}
               hideHeader={true}
+              projectName={activeProjectName}
+              projectType={activeProjectType}
+              customLprCode={currentProject?.customLprCode}
               activeEventToEdit={activeEventToEdit}
               onChangeActiveFile={setActiveCodeFile}
               onCloseFile={handleCloseCodeFile}
@@ -1559,6 +1827,7 @@ const LazarusIDE: React.FC = () => {
               pureUnits={pureUnits}
               activeFormId={activeFormId}
               projectName={activeProjectName}
+              projectType={activeProjectType}
               projectGroup={projectGroup}
               onSelectProject={handleSelectProject}
               onNewProject={handleAddProjectToGroup}
@@ -1586,6 +1855,7 @@ const LazarusIDE: React.FC = () => {
                 pureUnits={pureUnits}
                 activeFormId={activeFormId}
                 projectName={activeProjectName}
+                projectType={activeProjectType}
                 projectGroup={projectGroup}
                 onSelectProject={handleSelectProject}
                 onNewProject={handleAddProjectToGroup}
@@ -1615,6 +1885,20 @@ const LazarusIDE: React.FC = () => {
         onClearLogs={() => setConsoleLogs([])}
         onReopenWindow={handleRun}
       />
+
+      {/* Horse Console Runner & REST Tester Modal */}
+      {isHorseRunnerOpen && (
+        <HorseConsoleRunner
+          isOpen={isHorseRunnerOpen}
+          onClose={() => {
+            setIsHorseRunnerOpen(false);
+            setIsRunning(false);
+          }}
+          projectName={activeProjectName}
+          port={9000}
+          projectType={activeProjectType === 'console' ? 'console' : 'horse'}
+        />
+      )}
     </div>
   );
 };

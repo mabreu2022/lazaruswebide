@@ -9,6 +9,7 @@ async function placeFromPalette(page: Page, tab: string, label: string, x: numbe
 }
 
 test.beforeEach(async ({ page }) => {
+  page.on('pageerror', err => console.log('PAGE ERROR:', err.message, err.stack));
   await page.goto('/');
   await expect(page.locator('.form-client-area')).toBeVisible();
 });
@@ -105,4 +106,66 @@ test('TImageList: existe em Common Controls, pode ser adicionado e inspecionado'
   await expect(page.locator('.prop-label-col', { hasText: 'ImageHeight' })).toBeVisible();
   await expect(page.locator('.prop-label-col', { hasText: 'Images' })).toBeVisible();
 });
+
+test('Horse REST API: cria projeto Horse, visualiza código Pascal, executa servidor e testa requisição', async ({ page }) => {
+  // 1. Abre menu Arquivo e clica em Servidor REST Horse
+  await page.locator('.menu-btn', { hasText: 'Arquivo' }).click();
+  await page.locator('.dropdown-action', { hasText: 'Servidor REST Horse' }).click();
+
+  // 2. Editor de código deve estar aberto no .lpr
+  await expect(page.locator('.lazarus-code-editor-view')).toBeVisible();
+  const codeContent = await page.locator('.code-textarea').inputValue();
+  expect(codeContent).toContain('Horse');
+  expect(codeContent).toContain('THorse.Listen');
+
+  // 3. Inspetor de Projetos deve exibir pacotes Horse
+  await expect(page.locator('.leaf-name', { hasText: /^Horse$/ })).toBeVisible();
+  await expect(page.locator('.leaf-name', { hasText: /^Horse-Jhonson$/ })).toBeVisible();
+
+  // 4. Se alternar para aba Form (F12), deve mostrar o banner explicativo de aplicação backend/console
+  await page.locator('.return-form-btn').click();
+  await expect(page.locator('.console-project-empty-designer')).toBeVisible();
+  await expect(page.locator('.console-designer-card h3')).toContainText('Servidor REST Horse');
+
+  // 5. Clica no botão de executar servidor REST
+  await page.locator('.console-designer-actions button', { hasText: 'Executar Servidor REST' }).click();
+
+  // 6. Modal do Runner Interativo e Testador REST deve abrir
+  await expect(page.locator('.horse-runner-window')).toBeVisible();
+  await expect(page.locator('.horse-status-badge')).toHaveText('ONLINE');
+
+  // Alterna para aba Console para checar logs do servidor FPC/Horse
+  await page.locator('.horse-tab-btn', { hasText: 'Console' }).click();
+  await expect(page.locator('.horse-terminal-screen')).toContainText('[Horse] Servidor HTTP escutando na porta 9000');
+  await page.locator('.horse-tab-btn', { hasText: 'Testador' }).click();
+
+  // 7. Testa envio de requisição GET /ping
+  await page.locator('.send-request-btn').click();
+  await expect(page.locator('.status-pill')).toHaveText(/200 OK/);
+  await expect(page.locator('.response-body-pre')).toContainText('"pong"');
+
+  // 8. Testa preset GET /clientes
+  await page.locator('.preset-chip', { hasText: 'GET /clientes' }).click();
+  await page.locator('.send-request-btn').click();
+  await expect(page.locator('.status-pill')).toHaveText(/200 OK/);
+  await expect(page.locator('.response-body-pre')).toContainText('Auto Peças Central');
+
+  // 9. Fecha modal do servidor
+  await page.locator('.horse-header-btn.close').click();
+  await expect(page.locator('.horse-runner-window')).toHaveCount(0);
+});
+
+test('Console: cria projeto Console e valida código pascal padrão terminal', async ({ page }) => {
+  // Abre menu Arquivo e clica em Aplicação Console
+  await page.locator('.menu-btn', { hasText: 'Arquivo' }).click();
+  await page.locator('.dropdown-action', { hasText: 'Aplicação Console' }).click();
+
+  // Verifica código do .lpr
+  await expect(page.locator('.lazarus-code-editor-view')).toBeVisible();
+  const codeContent = await page.locator('.code-textarea').inputValue();
+  expect(codeContent).toContain('program ConsoleApp;');
+  expect(codeContent).toContain('Writeln');
+  expect(codeContent).toContain('Readln');
+});
+
 

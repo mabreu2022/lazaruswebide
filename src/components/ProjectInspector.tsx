@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { LForm, LPureUnit, LProjectGroup } from '../types/lazarus';
+import type { LForm, LPureUnit, LProjectGroup, ProjectType } from '../types/lazarus';
 import {
   Folder,
   FileCode,
@@ -19,7 +19,9 @@ import {
   Maximize2,
   Minimize2,
   Database,
-  Layers
+  Layers,
+  Terminal,
+  Sparkles
 } from 'lucide-react';
 
 interface ProjectInspectorProps {
@@ -27,6 +29,7 @@ interface ProjectInspectorProps {
   pureUnits?: LPureUnit[];
   activeFormId: string;
   projectName?: string;
+  projectType?: ProjectType;
   projectGroup?: LProjectGroup;
   onSelectProject?: (projectId: string) => void;
   onNewProject?: () => void;
@@ -48,6 +51,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   pureUnits = [],
   activeFormId,
   projectName = 'project1',
+  projectType = 'gui',
   projectGroup,
   onSelectProject,
   onNewProject,
@@ -72,9 +76,16 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
-  // Packages list matching Lazarus screenshot (LazDroidControls, LCL, zcomponent, FCL)
+  // Packages list matching project type
   const hasZeos = forms.some(f => f.components.some(c => c.type.startsWith('TZ')));
-  const packages = [
+  const packages = projectType === 'horse' ? [
+    { name: 'Horse', desc: 'Minimalist Web Framework for Delphi and Free Pascal' },
+    { name: 'Horse-Jhonson', desc: 'JSON Middleware for Horse REST' },
+    { name: 'FCL-Net', desc: 'Free Component Library Network / Sockets' }
+  ] : projectType === 'console' ? [
+    { name: 'FCL', desc: 'Free Component Library' },
+    { name: 'RTL', desc: 'Free Pascal Run-Time Library' }
+  ] : [
     { name: 'LazDroidControls', desc: 'Lazarus Android Controls' },
     { name: 'LCL', desc: 'Lazarus Component Library' },
     ...(hasZeos ? [{ name: 'zcomponent', desc: 'ZeosDBO Firebird 5.0 Database' }] : []),
@@ -299,7 +310,13 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                   onClick={() => onSelectProject?.(proj.id)}
                   title={`Projeto: ${proj.name} (${proj.fileName}) ${isActive ? '[Ativo]' : '- Clique para ativar'}`}
                 >
-                  <FolderOpen size={12} className={isActive ? 'icon-proj-active' : 'icon-proj'} />
+                  {proj.projectType === 'horse' ? (
+                    <Sparkles size={12} className="icon-green" />
+                  ) : proj.projectType === 'console' ? (
+                    <Terminal size={12} className="icon-orange" />
+                  ) : (
+                    <FolderOpen size={12} className={isActive ? 'icon-proj-active' : 'icon-proj'} />
+                  )}
                   <span className="proj-item-name">{proj.name}</span>
                   {isActive && <span className="proj-active-badge">Ativo</span>}
                   {projectGroup.projects.length > 1 && onRemoveProject && (

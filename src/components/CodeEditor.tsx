@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { LForm, LPureUnit } from '../types/lazarus';
+import type { LForm, LPureUnit, ProjectType } from '../types/lazarus';
 import { generateUnitPas, generateLFM, generateProjectLpr } from '../utils/pascalGenerator';
 import {
   FileCode,
@@ -11,12 +11,15 @@ import {
 } from 'lucide-react';
 
 interface CodeEditorProps {
-  form: LForm;
+  form?: LForm;
   forms?: LForm[];
   pureUnits?: LPureUnit[];
   activeFile: string;
   openFiles?: string[];
   hideHeader?: boolean;
+  projectName?: string;
+  projectType?: ProjectType;
+  customLprCode?: string;
   activeEventToEdit?: { componentId: string; eventName: string; procedureName: string };
   onChangeActiveFile: (file: string) => void;
   onCloseFile?: (file: string) => void;
@@ -32,6 +35,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   activeFile,
   openFiles,
   hideHeader = false,
+  projectName = 'Project1',
+  projectType = 'gui',
+  customLprCode,
   activeEventToEdit,
   onChangeActiveFile,
   onCloseFile,
@@ -45,7 +51,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLPreElement>(null);
 
-  const allForms = forms && forms.length > 0 ? forms : [form];
+  const allForms = forms && forms.length > 0 ? forms : (form ? [form] : []);
 
   // Resolve current active form based on activeFile
   const currentEditingForm = React.useMemo(() => {
@@ -56,7 +62,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         return f;
       }
     }
-    return form;
+    return form || allForms[0];
   }, [activeFile, allForms, form]);
 
   const getCurrentCode = useCallback(() => {
@@ -72,19 +78,19 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
 
     if (lower.endsWith('.lpr')) {
-      return generateProjectLpr(allForms, pureUnits);
+      return generateProjectLpr(allForms, pureUnits, projectType, projectName, customLprCode);
     }
     if (lower.endsWith('.lfm')) {
-      return generateLFM(currentEditingForm);
+      return currentEditingForm ? generateLFM(currentEditingForm) : '';
     }
-    return generateUnitPas(currentEditingForm);
-  }, [activeFile, allForms, currentEditingForm, pureUnits, userEditedCode]);
+    return currentEditingForm ? generateUnitPas(currentEditingForm) : '// Unit source code';
+  }, [activeFile, allForms, currentEditingForm, pureUnits, userEditedCode, projectType, customLprCode, projectName]);
 
   const pascalCode = getCurrentCode();
 
   // When activeEventToEdit is set, highlight/scroll to it
   useEffect(() => {
-    if (activeEventToEdit && activeFile.toLowerCase().endsWith('.pas') && textareaRef.current) {
+    if (activeEventToEdit && form && activeFile.toLowerCase().endsWith('.pas') && textareaRef.current) {
       const searchTarget = `procedure T${form.name}.${activeEventToEdit.procedureName}`;
       const index = pascalCode.indexOf(searchTarget);
       if (index !== -1) {
@@ -99,7 +105,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         if (overlayRef.current) overlayRef.current.scrollTop = targetScrollTop;
       }
     }
-  }, [activeEventToEdit, activeFile, pascalCode, form.name]);
+  }, [activeEventToEdit, activeFile, pascalCode, form?.name]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(getCurrentCode());
@@ -203,7 +209,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
                 >
                   + ShowMessage
                 </button>
-                {currentEditingForm.components[0] && (
+                {currentEditingForm?.components?.[0] && (
                   <button
                     className="snippet-btn"
                     onClick={() => handleInsertSnippet(`  ${currentEditingForm.components[0].name}.Caption := 'Atualizado!';\n`)}

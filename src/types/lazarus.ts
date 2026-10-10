@@ -196,9 +196,12 @@ export interface LPureUnit {
   code: string;
 }
 
+export type ProjectType = 'gui' | 'console' | 'horse';
+
 export interface LProject {
   id: string;
-  name: string;          // 'Project1'
+  name: string;          // 'Project1' / 'ServidorHorse'
+  projectType?: ProjectType; // 'gui' (padrão LCL) | 'console' | 'horse'
   fileName: string;      // 'Project1.lpi'
   lprFileName: string;   // 'Project1.lpr'
   forms: LForm[];
@@ -206,6 +209,7 @@ export interface LProject {
   activeFormId: string;
   openFiles?: string[];
   activeCodeFile?: string;
+  customLprCode?: string;
 }
 
 export interface LProjectGroup {

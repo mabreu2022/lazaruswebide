@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface ObjectInspectorProps {
-  form: LForm;
+  form?: LForm;
   selectedComponentIds: string[];
   onSelectComponent: (id: string) => void;
   onSelectForm: () => void;
@@ -66,6 +66,20 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
   };
+
+  if (!form || !form.components) {
+    return (
+      <aside className="lazarus-dock-panel lazarus-left-dock">
+        <div className="dock-header">
+          <span className="dock-title">Inspetor de Objetos</span>
+        </div>
+        <div style={{ padding: 20, color: '#94a3b8', fontSize: 13, textAlign: 'center', lineHeight: 1.5 }}>
+          <p style={{ marginBottom: 8, fontWeight: 600, color: '#e2e8f0' }}>Nenhum formulário ativo</p>
+          <p>Aplicações Console e Servidores Horse executam em modo backend/terminal e não possuem formulários visuais LCL.</p>
+        </div>
+      </aside>
+    );
+  }
 
   // Identify selected object (either a component or the form itself)
   const isFormSelected = selectedComponentIds.length === 0;
