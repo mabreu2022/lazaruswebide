@@ -182,10 +182,68 @@ export interface LForm {
   color: string;
   fontFamily: string;
   fontSize: number;
+  fontBold?: boolean;
+  fontItalic?: boolean;
+  fontColor?: string;
   isDataModule?: boolean;
   components: LComponent[];
   events: Record<string, string>;
   eventCode: Record<string, string>;
+
+  // Lazarus TForm Properties (Authentic LCL TForm)
+  action?: string;
+  activeControl?: string;
+  align?: AlignType;
+  allowDropFiles?: boolean;
+  alphaBlend?: boolean;
+  alphaBlendValue?: number;
+  anchors?: string;
+  autoScroll?: boolean;
+  autoSize?: boolean;
+  bidiMode?: 'bdLeftToRight' | 'bdRightToLeft' | 'bdRightToLeftNoAlign' | 'bdRightToLeftReadingOnly';
+  borderIcons?: string;
+  borderStyle?: 'bsSizeable' | 'bsSingle' | 'bsNone' | 'bsDialog' | 'bsToolWindow' | 'bsSizeToolWin';
+  borderWidth?: number;
+  childSizing?: string;
+  constraints?: string;
+  cursor?: string;
+  defaultMonitor?: 'dmDesktop' | 'dmPrimary' | 'dmMainForm' | 'dmActiveForm';
+  designTimePPI?: number;
+  dockSite?: boolean;
+  doubleBuffered?: boolean;
+  dragKind?: 'dkDrag' | 'dkDock';
+  dragMode?: 'dmManual' | 'dmAutomatic';
+  enabled?: boolean;
+  formStyle?: 'fsNormal' | 'fsMDIChild' | 'fsMDIForm' | 'fsStayOnTop' | 'fsSystemStayOnTop';
+  helpContext?: number;
+  helpFile?: string;
+  helpKeyword?: string;
+  helpType?: 'htContext' | 'htKeyword';
+  hint?: string;
+  horzScrollBar?: string;
+  icon?: string;
+  keyPreview?: boolean;
+  menu?: string;
+  orientation?: 'dfoRotational' | 'dfoPortrait' | 'dfoLandscape';
+  parentBiDiMode?: boolean;
+  parentDoubleBuffered?: boolean;
+  parentFont?: boolean;
+  pixelsPerInch?: number;
+  popupMenu?: string;
+  popupMode?: 'pmNone' | 'pmAuto' | 'pmExplicit';
+  position?: 'poDesigned' | 'poDefault' | 'poDefaultPosOnly' | 'poDefaultSizeOnly' | 'poScreenCenter' | 'poDesktopCenter' | 'poMainFormCenter' | 'poOwnerFormCenter';
+  scaled?: boolean;
+  screenSnap?: boolean;
+  sessionProperties?: string;
+  showHint?: boolean;
+  showInTaskBar?: 'stDefault' | 'stAlways' | 'stNever';
+  snapBuffer?: number;
+  snapOptions?: string;
+  tag?: number;
+  useDockManager?: boolean;
+  vertScrollBar?: string;
+  visible?: boolean;
+  windowState?: 'wsNormal' | 'wsMinimized' | 'wsMaximized';
 }
 
 export interface LPureUnit {

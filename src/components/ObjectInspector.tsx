@@ -306,8 +306,114 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
             {/* If Form is selected */}
             {isFormSelected && (
               <>
-                {filterMatch('Name', filterQuery) && (
-                  <PropertyRow label="Name" readOnly value={form.name} />
+                {filterMatch('Action', filterQuery) && (
+                  <PropertyRow
+                    label="Action"
+                    value={form.action || ''}
+                    onChange={(val) => onUpdateForm({ action: String(val) })}
+                  />
+                )}
+                {filterMatch('ActiveControl', filterQuery) && (
+                  <PropertyRow
+                    label="ActiveControl"
+                    type="select"
+                    options={['(Nenhum)', ...form.components.map(c => c.name)]}
+                    value={form.activeControl || '(Nenhum)'}
+                    onChange={(val) => onUpdateForm({ activeControl: String(val) })}
+                  />
+                )}
+                {filterMatch('Align', filterQuery) && (
+                  <PropertyRow
+                    label="Align"
+                    type="select"
+                    options={['alNone', 'alTop', 'alBottom', 'alLeft', 'alRight', 'alClient', 'alCustom']}
+                    value={form.align || 'alNone'}
+                    onChange={(val) => onUpdateForm({ align: val as AlignType })}
+                  />
+                )}
+                {filterMatch('AllowDropFiles', filterQuery) && (
+                  <PropertyRow
+                    label="AllowDropFiles"
+                    type="boolean"
+                    value={form.allowDropFiles ?? false}
+                    onChange={(val) => onUpdateForm({ allowDropFiles: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('AlphaBlend', filterQuery) && (
+                  <PropertyRow
+                    label="AlphaBlend"
+                    type="boolean"
+                    value={form.alphaBlend ?? false}
+                    onChange={(val) => onUpdateForm({ alphaBlend: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('AlphaBlendValue', filterQuery) && (
+                  <PropertyRow
+                    label="AlphaBlendValue"
+                    type="number"
+                    value={form.alphaBlendValue ?? 255}
+                    onChange={(val) => onUpdateForm({ alphaBlendValue: Number(val) })}
+                  />
+                )}
+                {filterMatch('Anchors', filterQuery) && (
+                  <PropertyRow
+                    label="Anchors"
+                    type="select"
+                    options={['[akTop,akLeft]', '[akTop,akRight]', '[akBottom,akLeft]', '[akBottom,akRight]', '[akTop,akLeft,akRight]', '[akTop,akBottom,akLeft,akRight]']}
+                    value={form.anchors || '[akTop,akLeft]'}
+                    onChange={(val) => onUpdateForm({ anchors: String(val) })}
+                  />
+                )}
+                {filterMatch('AutoScroll', filterQuery) && (
+                  <PropertyRow
+                    label="AutoScroll"
+                    type="boolean"
+                    value={form.autoScroll ?? false}
+                    onChange={(val) => onUpdateForm({ autoScroll: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('AutoSize', filterQuery) && (
+                  <PropertyRow
+                    label="AutoSize"
+                    type="boolean"
+                    value={form.autoSize ?? false}
+                    onChange={(val) => onUpdateForm({ autoSize: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('BiDiMode', filterQuery) && (
+                  <PropertyRow
+                    label="BiDiMode"
+                    type="select"
+                    options={['bdLeftToRight', 'bdRightToLeft', 'bdRightToLeftNoAlign', 'bdRightToLeftReadingOnly']}
+                    value={form.bidiMode || 'bdLeftToRight'}
+                    onChange={(val) => onUpdateForm({ bidiMode: val as any })}
+                  />
+                )}
+                {filterMatch('BorderIcons', filterQuery) && (
+                  <PropertyRow
+                    label="BorderIcons"
+                    type="select"
+                    options={['[biSystemMenu,biMinimize,biMaximize]', '[biSystemMenu,biMinimize]', '[biSystemMenu]', '[biSystemMenu,biMinimize,biMaximize,biHelp]']}
+                    value={form.borderIcons || '[biSystemMenu,biMinimize,biMaximize]'}
+                    onChange={(val) => onUpdateForm({ borderIcons: String(val) })}
+                  />
+                )}
+                {filterMatch('BorderStyle', filterQuery) && (
+                  <PropertyRow
+                    label="BorderStyle"
+                    type="select"
+                    options={['bsSizeable', 'bsSingle', 'bsNone', 'bsDialog', 'bsToolWindow', 'bsSizeToolWin']}
+                    value={form.borderStyle || 'bsSizeable'}
+                    onChange={(val) => onUpdateForm({ borderStyle: val as any })}
+                  />
+                )}
+                {filterMatch('BorderWidth', filterQuery) && (
+                  <PropertyRow
+                    label="BorderWidth"
+                    type="number"
+                    value={form.borderWidth ?? 0}
+                    onChange={(val) => onUpdateForm({ borderWidth: Number(val) })}
+                  />
                 )}
                 {filterMatch('Caption', filterQuery) && (
                   <PropertyRow
@@ -316,12 +422,139 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                     onChange={(val) => onUpdateForm({ caption: String(val) })}
                   />
                 )}
-                {filterMatch('Width', filterQuery) && (
+                {filterMatch('ChildSizing', filterQuery) && (
+                  <PropertyRow label="ChildSizing" readOnly value="(TControlChildSizing)" />
+                )}
+                {filterMatch('Color', filterQuery) && (
                   <PropertyRow
-                    label="Width"
+                    label="Color"
+                    type="color"
+                    value={form.color}
+                    onChange={(val) => onUpdateForm({ color: String(val) })}
+                  />
+                )}
+                {filterMatch('Constraints', filterQuery) && (
+                  <PropertyRow label="Constraints" readOnly value="(TSizeConstraints)" />
+                )}
+                {filterMatch('Cursor', filterQuery) && (
+                  <PropertyRow
+                    label="Cursor"
+                    type="select"
+                    options={['crDefault', 'crArrow', 'crCross', 'crIBeam', 'crSize', 'crSizeNESW', 'crSizeNS', 'crSizeNWSE', 'crSizeWE', 'crUpArrow', 'crHourGlass', 'crDrag', 'crNoDrop', 'crHSplit', 'crVSplit', 'crMultiDrag', 'crSQLWait', 'crNo', 'crAppStart', 'crHelp', 'crHandPoint']}
+                    value={form.cursor || 'crDefault'}
+                    onChange={(val) => onUpdateForm({ cursor: String(val) })}
+                  />
+                )}
+                {filterMatch('DefaultMonitor', filterQuery) && (
+                  <PropertyRow
+                    label="DefaultMonitor"
+                    type="select"
+                    options={['dmDesktop', 'dmPrimary', 'dmMainForm', 'dmActiveForm']}
+                    value={form.defaultMonitor || 'dmActiveForm'}
+                    onChange={(val) => onUpdateForm({ defaultMonitor: val as any })}
+                  />
+                )}
+                {filterMatch('DesignTimePPI', filterQuery) && (
+                  <PropertyRow
+                    label="DesignTimePPI"
                     type="number"
-                    value={form.width}
-                    onChange={(val) => onUpdateForm({ width: Math.max(100, Number(val)) })}
+                    value={form.designTimePPI ?? 120}
+                    onChange={(val) => onUpdateForm({ designTimePPI: Number(val) })}
+                  />
+                )}
+                {filterMatch('DockSite', filterQuery) && (
+                  <PropertyRow
+                    label="DockSite"
+                    type="boolean"
+                    value={form.dockSite ?? false}
+                    onChange={(val) => onUpdateForm({ dockSite: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('DoubleBuffered', filterQuery) && (
+                  <PropertyRow
+                    label="DoubleBuffered"
+                    type="boolean"
+                    value={form.doubleBuffered ?? true}
+                    onChange={(val) => onUpdateForm({ doubleBuffered: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('DragKind', filterQuery) && (
+                  <PropertyRow
+                    label="DragKind"
+                    type="select"
+                    options={['dkDrag', 'dkDock']}
+                    value={form.dragKind || 'dkDrag'}
+                    onChange={(val) => onUpdateForm({ dragKind: val as any })}
+                  />
+                )}
+                {filterMatch('DragMode', filterQuery) && (
+                  <PropertyRow
+                    label="DragMode"
+                    type="select"
+                    options={['dmManual', 'dmAutomatic']}
+                    value={form.dragMode || 'dmManual'}
+                    onChange={(val) => onUpdateForm({ dragMode: val as any })}
+                  />
+                )}
+                {filterMatch('Enabled', filterQuery) && (
+                  <PropertyRow
+                    label="Enabled"
+                    type="boolean"
+                    value={form.enabled ?? true}
+                    onChange={(val) => onUpdateForm({ enabled: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('Font', filterQuery) && (
+                  <PropertyRow label="Font" readOnly value="(TFont)" />
+                )}
+                {filterMatch('Font.Bold', filterQuery) && (
+                  <PropertyRow
+                    label="Font.Bold"
+                    type="boolean"
+                    value={form.fontBold ?? false}
+                    onChange={(val) => onUpdateForm({ fontBold: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('Font.Color', filterQuery) && (
+                  <PropertyRow
+                    label="Font.Color"
+                    type="color"
+                    value={form.fontColor || '#000000'}
+                    onChange={(val) => onUpdateForm({ fontColor: String(val) })}
+                  />
+                )}
+                {filterMatch('Font.Italic', filterQuery) && (
+                  <PropertyRow
+                    label="Font.Italic"
+                    type="boolean"
+                    value={form.fontItalic ?? false}
+                    onChange={(val) => onUpdateForm({ fontItalic: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('Font.Name', filterQuery) && (
+                  <PropertyRow
+                    label="Font.Name"
+                    type="select"
+                    options={['Inter, sans-serif', 'Segoe UI', 'Tahoma', 'Arial', 'Fira Code', 'Courier New']}
+                    value={form.fontFamily || 'Inter, sans-serif'}
+                    onChange={(val) => onUpdateForm({ fontFamily: String(val) })}
+                  />
+                )}
+                {filterMatch('Font.Size', filterQuery) && (
+                  <PropertyRow
+                    label="Font.Size"
+                    type="number"
+                    value={form.fontSize}
+                    onChange={(val) => onUpdateForm({ fontSize: Number(val) })}
+                  />
+                )}
+                {filterMatch('FormStyle', filterQuery) && (
+                  <PropertyRow
+                    label="FormStyle"
+                    type="select"
+                    options={['fsNormal', 'fsMDIChild', 'fsMDIForm', 'fsStayOnTop', 'fsSystemStayOnTop']}
+                    value={form.formStyle || 'fsNormal'}
+                    onChange={(val) => onUpdateForm({ formStyle: val as any })}
                   />
                 )}
                 {filterMatch('Height', filterQuery) && (
@@ -332,20 +565,243 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                     onChange={(val) => onUpdateForm({ height: Math.max(100, Number(val)) })}
                   />
                 )}
-                {filterMatch('Color', filterQuery) && (
+                {filterMatch('HelpContext', filterQuery) && (
                   <PropertyRow
-                    label="Color"
-                    type="color"
-                    value={form.color}
-                    onChange={(val) => onUpdateForm({ color: String(val) })}
+                    label="HelpContext"
+                    type="number"
+                    value={form.helpContext ?? 0}
+                    onChange={(val) => onUpdateForm({ helpContext: Number(val) })}
                   />
                 )}
-                {filterMatch('Font.Size', filterQuery) && (
+                {filterMatch('HelpFile', filterQuery) && (
                   <PropertyRow
-                    label="Font.Size"
+                    label="HelpFile"
+                    value={form.helpFile || ''}
+                    onChange={(val) => onUpdateForm({ helpFile: String(val) })}
+                  />
+                )}
+                {filterMatch('HelpKeyword', filterQuery) && (
+                  <PropertyRow
+                    label="HelpKeyword"
+                    value={form.helpKeyword || ''}
+                    onChange={(val) => onUpdateForm({ helpKeyword: String(val) })}
+                  />
+                )}
+                {filterMatch('HelpType', filterQuery) && (
+                  <PropertyRow
+                    label="HelpType"
+                    type="select"
+                    options={['htContext', 'htKeyword']}
+                    value={form.helpType || 'htContext'}
+                    onChange={(val) => onUpdateForm({ helpType: val as any })}
+                  />
+                )}
+                {filterMatch('Hint', filterQuery) && (
+                  <PropertyRow
+                    label="Hint"
+                    value={form.hint || ''}
+                    onChange={(val) => onUpdateForm({ hint: String(val) })}
+                  />
+                )}
+                {filterMatch('HorzScrollBar', filterQuery) && (
+                  <PropertyRow label="HorzScrollBar" readOnly value="(TControlScrollBar)" />
+                )}
+                {filterMatch('Icon', filterQuery) && (
+                  <PropertyRow label="Icon" readOnly value="(TIcon)" />
+                )}
+                {filterMatch('KeyPreview', filterQuery) && (
+                  <PropertyRow
+                    label="KeyPreview"
+                    type="boolean"
+                    value={form.keyPreview ?? false}
+                    onChange={(val) => onUpdateForm({ keyPreview: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('Left', filterQuery) && (
+                  <PropertyRow
+                    label="Left"
                     type="number"
-                    value={form.fontSize}
-                    onChange={(val) => onUpdateForm({ fontSize: Number(val) })}
+                    value={form.left ?? 60}
+                    onChange={(val) => onUpdateForm({ left: Number(val) })}
+                  />
+                )}
+                {filterMatch('Menu', filterQuery) && (
+                  <PropertyRow
+                    label="Menu"
+                    value={form.menu || ''}
+                    onChange={(val) => onUpdateForm({ menu: String(val) })}
+                  />
+                )}
+                {filterMatch('Name', filterQuery) && (
+                  <PropertyRow label="Name" readOnly value={form.name} />
+                )}
+                {filterMatch('Orientation', filterQuery) && (
+                  <PropertyRow
+                    label="Orientation"
+                    type="select"
+                    options={['dfoRotational', 'dfoPortrait', 'dfoLandscape']}
+                    value={form.orientation || 'dfoRotational'}
+                    onChange={(val) => onUpdateForm({ orientation: val as any })}
+                  />
+                )}
+                {filterMatch('ParentBiDiMode', filterQuery) && (
+                  <PropertyRow
+                    label="ParentBiDiMode"
+                    type="boolean"
+                    value={form.parentBiDiMode ?? true}
+                    onChange={(val) => onUpdateForm({ parentBiDiMode: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('ParentDoubleBuffered', filterQuery) && (
+                  <PropertyRow
+                    label="ParentDoubleBuffered"
+                    type="boolean"
+                    value={form.parentDoubleBuffered ?? true}
+                    onChange={(val) => onUpdateForm({ parentDoubleBuffered: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('ParentFont', filterQuery) && (
+                  <PropertyRow
+                    label="ParentFont"
+                    type="boolean"
+                    value={form.parentFont ?? false}
+                    onChange={(val) => onUpdateForm({ parentFont: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('PixelsPerInch', filterQuery) && (
+                  <PropertyRow
+                    label="PixelsPerInch"
+                    type="number"
+                    value={form.pixelsPerInch ?? 120}
+                    onChange={(val) => onUpdateForm({ pixelsPerInch: Number(val) })}
+                  />
+                )}
+                {filterMatch('PopupMenu', filterQuery) && (
+                  <PropertyRow
+                    label="PopupMenu"
+                    value={form.popupMenu || ''}
+                    onChange={(val) => onUpdateForm({ popupMenu: String(val) })}
+                  />
+                )}
+                {filterMatch('PopupMode', filterQuery) && (
+                  <PropertyRow
+                    label="PopupMode"
+                    type="select"
+                    options={['pmNone', 'pmAuto', 'pmExplicit']}
+                    value={form.popupMode || 'pmNone'}
+                    onChange={(val) => onUpdateForm({ popupMode: val as any })}
+                  />
+                )}
+                {filterMatch('Position', filterQuery) && (
+                  <PropertyRow
+                    label="Position"
+                    type="select"
+                    options={['poDesigned', 'poDefault', 'poDefaultPosOnly', 'poDefaultSizeOnly', 'poScreenCenter', 'poDesktopCenter', 'poMainFormCenter', 'poOwnerFormCenter']}
+                    value={form.position || 'poDesigned'}
+                    onChange={(val) => onUpdateForm({ position: val as any })}
+                  />
+                )}
+                {filterMatch('Scaled', filterQuery) && (
+                  <PropertyRow
+                    label="Scaled"
+                    type="boolean"
+                    value={form.scaled ?? true}
+                    onChange={(val) => onUpdateForm({ scaled: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('ScreenSnap', filterQuery) && (
+                  <PropertyRow
+                    label="ScreenSnap"
+                    type="boolean"
+                    value={form.screenSnap ?? false}
+                    onChange={(val) => onUpdateForm({ screenSnap: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('SessionProperties', filterQuery) && (
+                  <PropertyRow
+                    label="SessionProperties"
+                    value={form.sessionProperties || ''}
+                    onChange={(val) => onUpdateForm({ sessionProperties: String(val) })}
+                  />
+                )}
+                {filterMatch('ShowHint', filterQuery) && (
+                  <PropertyRow
+                    label="ShowHint"
+                    type="boolean"
+                    value={form.showHint ?? false}
+                    onChange={(val) => onUpdateForm({ showHint: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('ShowInTaskBar', filterQuery) && (
+                  <PropertyRow
+                    label="ShowInTaskBar"
+                    type="select"
+                    options={['stDefault', 'stAlways', 'stNever']}
+                    value={form.showInTaskBar || 'stDefault'}
+                    onChange={(val) => onUpdateForm({ showInTaskBar: val as any })}
+                  />
+                )}
+                {filterMatch('SnapBuffer', filterQuery) && (
+                  <PropertyRow
+                    label="SnapBuffer"
+                    type="number"
+                    value={form.snapBuffer ?? 10}
+                    onChange={(val) => onUpdateForm({ snapBuffer: Number(val) })}
+                  />
+                )}
+                {filterMatch('SnapOptions', filterQuery) && (
+                  <PropertyRow label="SnapOptions" readOnly value="(TWindowMagnetOptions)" />
+                )}
+                {filterMatch('Tag', filterQuery) && (
+                  <PropertyRow
+                    label="Tag"
+                    type="number"
+                    value={form.tag ?? 0}
+                    onChange={(val) => onUpdateForm({ tag: Number(val) })}
+                  />
+                )}
+                {filterMatch('Top', filterQuery) && (
+                  <PropertyRow
+                    label="Top"
+                    type="number"
+                    value={form.top ?? 30}
+                    onChange={(val) => onUpdateForm({ top: Number(val) })}
+                  />
+                )}
+                {filterMatch('UseDockManager', filterQuery) && (
+                  <PropertyRow
+                    label="UseDockManager"
+                    type="boolean"
+                    value={form.useDockManager ?? false}
+                    onChange={(val) => onUpdateForm({ useDockManager: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('VertScrollBar', filterQuery) && (
+                  <PropertyRow label="VertScrollBar" readOnly value="(TControlScrollBar)" />
+                )}
+                {filterMatch('Visible', filterQuery) && (
+                  <PropertyRow
+                    label="Visible"
+                    type="boolean"
+                    value={form.visible ?? true}
+                    onChange={(val) => onUpdateForm({ visible: Boolean(val) })}
+                  />
+                )}
+                {filterMatch('Width', filterQuery) && (
+                  <PropertyRow
+                    label="Width"
+                    type="number"
+                    value={form.width}
+                    onChange={(val) => onUpdateForm({ width: Math.max(100, Number(val)) })}
+                  />
+                )}
+                {filterMatch('WindowState', filterQuery) && (
+                  <PropertyRow
+                    label="WindowState"
+                    type="select"
+                    options={['wsNormal', 'wsMinimized', 'wsMaximized']}
+                    value={form.windowState || 'wsNormal'}
+                    onChange={(val) => onUpdateForm({ windowState: val as any })}
                   />
                 )}
               </>
