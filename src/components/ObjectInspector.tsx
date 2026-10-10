@@ -262,7 +262,7 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
       {/* Main Properties/Events Grid */}
       <div className="inspector-grid-scroll">
         {activeTab === 'properties' ? (
-          <div className="property-grid">
+          <SortedProps className="property-grid">
             {/* If Form is selected */}
             {isFormSelected && (
               <>
@@ -551,7 +551,7 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                     isPC ? { activeTab: i, activePageIndex: i } : { pageIndex: i, activePageIndex: i }
                   );
                   return (
-                    <div className="property-row pages-manager-row">
+                    <div className="property-row pages-manager-row" data-label="Pages">
                       <div className="prop-label-col" title="Pages"><span>Pages</span></div>
                       <div className="prop-value-col pages-manager">
                         <div className="pages-chip-list">
@@ -681,7 +681,7 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                 {selectedComp.type === 'TImage' && (
                   <>
                     {filterMatch('Picture', filterQuery) && (
-                      <div className="property-row prop-picture-row">
+                      <div className="property-row prop-picture-row" data-label="Picture">
                         <div className="prop-label-col" title="Picture">
                           <span>Picture</span>
                         </div>
@@ -992,7 +992,7 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                 <p>Edição em lote de posição e visibilidade disponível.</p>
               </div>
             )}
-          </div>
+          </SortedProps>
         ) : (
           /* Events Grid */
           <div className="property-grid events-grid">
@@ -1043,6 +1043,33 @@ function filterMatch(label: string, query: string): boolean {
   return label.toLowerCase().includes(query);
 }
 
+// Renders property rows sorted alphabetically (case-insensitive) by their label.
+// Fragments and conditional (false/null) children are flattened first.
+const flattenChildren = (nodes: React.ReactNode): React.ReactElement[] => {
+  const out: React.ReactElement[] = [];
+  React.Children.forEach(nodes, (child) => {
+    if (!React.isValidElement(child)) return;
+    if (child.type === React.Fragment) {
+      out.push(...flattenChildren((child.props as { children?: React.ReactNode }).children));
+    } else {
+      out.push(child);
+    }
+  });
+  return out;
+};
+
+const propLabel = (el: React.ReactElement): string => {
+  const p = el.props as { label?: string; 'data-label'?: string };
+  return p.label ?? p['data-label'] ?? '\uffff';
+};
+
+const SortedProps: React.FC<{ className?: string; children?: React.ReactNode }> = ({ className, children }) => {
+  const sorted = flattenChildren(children)
+    .map((el, i) => ({ el, i }))
+    .sort((a, b) => propLabel(a.el).toLowerCase().localeCompare(propLabel(b.el).toLowerCase(), 'pt-BR') || a.i - b.i)
+    .map(x => x.el);
+  return <div className={className}>{sorted.map((el, i) => React.cloneElement(el, { key: el.key ?? `p${i}` }))}</div>;
+};
 // Individual Property Row Renderer
 interface PropertyRowProps {
   label: string;
