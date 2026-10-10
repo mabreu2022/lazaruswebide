@@ -247,3 +247,29 @@ export interface ConsoleMessage {
   type: 'info' | 'success' | 'warning' | 'error';
   text: string;
 }
+
+export interface DeployValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface DeployBuildResult {
+  success: boolean;
+  errors: string[];
+  warnings: string[];
+  files: Record<string, string>;
+  bundleHtml?: string;
+}
+
+export interface DeployResult {
+  success: boolean;
+  projectId: string;
+  projectName: string;
+  deployUrl: string;
+  fullUrl?: string;
+  provider: 'ide' | 'vercel' | 'netlify';
+  message: string;
+  timestamp: number;
+}
+

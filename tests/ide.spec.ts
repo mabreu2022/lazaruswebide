@@ -256,6 +256,67 @@ test('Delphi Dock Pinning: desafixar e fixar janelas laterais com auto-hide e fl
   await expect(page.locator('.lazarus-right-dock-panel')).toBeVisible();
 });
 
+test('Deploy & Publicação: abre modal, compila, publica na nuvem da IDE com link público e testa exportação ZIP', async ({ page }) => {
+  // 1. Abre o modal via botão na barra de ferramentas
+  const deployBtn = page.locator('.deploy-toolbar-btn');
+  await expect(deployBtn).toBeVisible();
+  await deployBtn.click();
+
+  // 2. Modal deve abrir com título e abas
+  const modal = page.locator('.deploy-modal-container');
+  await expect(modal).toBeVisible();
+  await expect(modal.locator('.deploy-modal-title')).toHaveText('Deploy & Publicação da Aplicação');
+
+  // 3. Verifica as 3 abas
+  await expect(page.locator('.deploy-tab-btn', { hasText: 'Nuvem da IDE' })).toBeVisible();
+  await expect(page.locator('.deploy-tab-btn', { hasText: 'Exportar Pacote (.ZIP)' })).toBeVisible();
+  await expect(page.locator('.deploy-tab-btn', { hasText: 'Deploy Externo' })).toBeVisible();
+
+  // 4. Executa compilação e publicação na Nuvem da IDE
+  const startBtn = page.locator('.start-deploy-btn');
+  await expect(startBtn).toBeVisible();
+  await startBtn.click();
+
+  // 5. Stepper deve completar até o passo 4
+  await expect(page.locator('.step-item').nth(3)).toHaveClass(/done/);
+
+  // 6. Card de sucesso deve exibir status e URL pública
+  await expect(page.locator('.deploy-success-card')).toBeVisible();
+  await expect(page.locator('.status-indicator')).toContainText('APLICAÇÃO PUBLICADA COM SUCESSO');
+
+  const urlInput = page.locator('.deploy-url-input');
+  await expect(urlInput).toBeVisible();
+  const publicUrl = await urlInput.inputValue();
+  expect(publicUrl).toContain('/apps/');
+
+  // 7. Botão Copiar Link
+  const copyBtn = page.locator('.deploy-action-btn.copy-btn');
+  await copyBtn.click();
+  await expect(copyBtn).toContainText('Copiado!');
+
+  // 8. Iframe de Preview ao vivo deve estar carregado
+  const iframe = page.locator('.deploy-preview-iframe');
+  await expect(iframe).toBeVisible();
+
+  // 9. Alterna para aba Exportar Pacote (.ZIP)
+  await page.locator('.deploy-tab-btn', { hasText: 'Exportar Pacote (.ZIP)' }).click();
+  await expect(page.locator('.zip-description-card')).toBeVisible();
+  await expect(page.locator('.file-check-item', { hasText: 'index.html' })).toBeVisible();
+  await expect(page.locator('.file-check-item', { hasText: 'app.js' })).toBeVisible();
+  await expect(page.locator('.file-check-item', { hasText: 'style.css' })).toBeVisible();
+
+  // 10. Dispara download do ZIP
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('.download-zip-btn').click()
+  ]);
+  expect(download.suggestedFilename()).toContain('.zip');
+
+  // 11. Fecha o modal
+  await page.locator('.deploy-close-btn').click();
+  await expect(modal).toHaveCount(0);
+});
+
 
 
 

@@ -18,7 +18,9 @@ import {
   FolderOpen,
   Save,
   Database,
-  Terminal
+  Terminal,
+  Rocket,
+  Package
 } from 'lucide-react';
 import type { IDEState, ProjectType } from '../types/lazarus';
 
@@ -39,6 +41,8 @@ interface TopMenuBarProps {
   onSaveUnit: () => void;
   onSaveProject: () => void;
   onExportProject: () => void;
+  onOpenDeployModal?: () => void;
+  onExportDeployZip?: () => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -69,6 +73,8 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
   onSaveUnit,
   onSaveProject,
   onExportProject,
+  onOpenDeployModal,
+  onExportDeployZip,
   onUndo,
   onRedo,
   canUndo,
@@ -306,7 +312,27 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
                     closeMenu();
                   }}
                 >
-                  <Download size={14} /> Exportar Projeto (.zip)
+                  <Download size={14} /> Exportar Fontes do Projeto (.zip)
+                </div>
+                <div className="dropdown-divider" />
+                <div className="dropdown-submenu-header">Deploy & Publicação:</div>
+                <div
+                  className="dropdown-action deploy-menu-action"
+                  onClick={() => {
+                    onOpenDeployModal?.();
+                    closeMenu();
+                  }}
+                >
+                  <Rocket size={14} className="icon-cyan" /> Deploy / Publicar Aplicação Web...
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onExportDeployZip?.();
+                    closeMenu();
+                  }}
+                >
+                  <Package size={14} className="icon-blue" /> Exportar Pacote Web (.ZIP)
                 </div>
                 <div className="dropdown-divider" />
                 <div className="dropdown-submenu-header">Grupo de Projetos:</div>
@@ -498,6 +524,15 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
           >
             {state.activeTab === 'code' ? <Layout size={16} /> : <Code2 size={16} />}
             <span>{state.activeTab === 'code' ? 'Ver Formulário (F12)' : 'Ver Código (F12)'}</span>
+          </button>
+
+          <button
+            className="tool-btn deploy-toolbar-btn"
+            onClick={onOpenDeployModal}
+            title="Deploy / Publicar Aplicação Web na Nuvem"
+          >
+            <Rocket size={15} className="icon-cyan" />
+            <span>Publicar / Deploy</span>
           </button>
         </div>
 

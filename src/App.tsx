@@ -21,6 +21,8 @@ import { BottomConsole } from './components/BottomConsole';
 import { StandaloneRunner } from './components/StandaloneRunner';
 import { ProjectInspector } from './components/ProjectInspector';
 import { HorseConsoleRunner } from './components/HorseConsoleRunner';
+import { DeployModal } from './components/DeployModal';
+import { exportZipBundle } from './services/deployService';
 import { getSampleProject, getSampleHorseProject, getSampleConsoleProject } from './data/sampleProjects';
 import {
   generateUnitPas,
@@ -275,6 +277,7 @@ const LazarusIDE: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isHorseRunnerOpen, setIsHorseRunnerOpen] = useState<boolean>(false);
   const [isConsoleCollapsed, setIsConsoleCollapsed] = useState<boolean>(false);
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState<boolean>(false);
 
   // Delphi-style Dock Pinning / Auto-Hide states (Persistência no localStorage)
   const [isLeftDockPinned, setIsLeftDockPinned] = useState<boolean>(() => {
@@ -1594,6 +1597,16 @@ const LazarusIDE: React.FC = () => {
   const activeProjectName = currentProject ? currentProject.name : 'Project1';
   const activeProjectType: ProjectType = currentProject?.projectType || 'gui';
 
+  const handleExportDeployZip = useCallback(async () => {
+    try {
+      addConsoleLog(`[Deploy] Empacotando arquivos de deploy da aplicação...`, 'info');
+      const { fileName, filesCount } = await exportZipBundle(currentProject, forms, pureUnits);
+      addConsoleLog(`[Deploy] Pacote ${fileName} (${filesCount} arquivos) exportado com sucesso!`, 'success');
+    } catch (err) {
+      addConsoleLog(`[Deploy] Erro ao exportar pacote ZIP: ${String(err)}`, 'error');
+    }
+  }, [currentProject, forms, pureUnits, addConsoleLog]);
+
   const ideState: IDEState = {
     form,
     forms,
@@ -1638,6 +1651,8 @@ const LazarusIDE: React.FC = () => {
         onSaveUnit={handleSaveUnit}
         onSaveProject={handleSaveProject}
         onExportProject={handleExportProject}
+        onOpenDeployModal={() => setIsDeployModalOpen(true)}
+        onExportDeployZip={handleExportDeployZip}
         onNewProjectGroup={handleNewProjectGroup}
         onAddProjectToGroup={handleAddProjectToGroup}
         onSaveProjectGroup={handleSaveProjectGroup}
@@ -2042,6 +2057,18 @@ const LazarusIDE: React.FC = () => {
           projectName={activeProjectName}
           port={9000}
           projectType={activeProjectType === 'console' ? 'console' : 'horse'}
+        />
+      )}
+
+      {/* Deploy & Cloud Publishing Modal */}
+      {isDeployModalOpen && (
+        <DeployModal
+          isOpen={isDeployModalOpen}
+          onClose={() => setIsDeployModalOpen(false)}
+          project={currentProject}
+          forms={forms}
+          pureUnits={pureUnits}
+          onLog={addConsoleLog}
         />
       )}
     </div>
