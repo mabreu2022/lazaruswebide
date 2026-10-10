@@ -39,6 +39,7 @@ import {
   Check,
   Database
 } from 'lucide-react';
+import { removeWithDescendants } from './utils/componentTree';
 import './App.css';
 
 const INITIAL_FORM: LForm = {
@@ -508,20 +509,8 @@ const LazarusIDE: React.FC = () => {
 
   // Delete Components (with recursive cascade deletion of children)
   const handleDeleteComponents = useCallback((ids: string[]) => {
-    const allToDelete = new Set<string>(ids);
-    let added = true;
-    while (added) {
-      added = false;
-      for (const comp of form.components) {
-        if (comp.parentId && allToDelete.has(comp.parentId) && !allToDelete.has(comp.id)) {
-          allToDelete.add(comp.id);
-          added = true;
-        }
-      }
-    }
-
-    const remaining = form.components.filter(c => !allToDelete.has(c.id));
-    const deletedNames = form.components.filter(c => allToDelete.has(c.id)).map(c => c.name).join(', ');
+    const { remaining, removed } = removeWithDescendants(form.components, ids);
+    const deletedNames = removed.map(c => c.name).join(', ');
     const updatedForm: LForm = { ...form, components: remaining };
 
     pushState(updatedForm);

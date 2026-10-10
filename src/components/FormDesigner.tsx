@@ -8,11 +8,13 @@ import { renderComponentIcon } from './componentIcons';
 import {
   computeFullFormLayout,
   isContainerComponent,
+  // (hierarquia: ver componentTree.ts)
   canAdoptChild,
   getContainerPadding,
   PAGE_PARENT_TYPE,
   repairPageHierarchy
 } from '../utils/layoutEngine';
+import { setParent, getChildrenIds } from '../utils/componentTree';
 import {
   X,
   Minus,
@@ -544,19 +546,16 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
 
           if (targetContainer && targetContainer.id !== comp.parentId) {
             if (canAdoptChild(targetContainer.id, comp.id, form.components)) {
-              const contRect = layoutMap.get(targetContainer.id) || targetContainer;
-              const pad = getContainerPadding(targetContainer);
-              const contAbsLeft = ('absLeft' in contRect ? contRect.absLeft : contRect.left) + pad.left;
-              const contAbsTop = ('absTop' in contRect ? contRect.absTop : contRect.top) + pad.top;
-
-              const newRelLeft = Math.max(0, snap(currentRect.absLeft - contAbsLeft));
-              const newRelTop = Math.max(0, snap(currentRect.absTop - contAbsTop));
-
-              onUpdateComponent(comp.id, {
-                parentId: targetContainer.id,
-                left: newRelLeft,
-                top: newRelTop
-              });
+              // setParent() recalcula as coordenadas locais a partir da posição absoluta
+              const reparented = setParent(form.components, comp.id, targetContainer.id, layoutMap);
+              const moved = reparented.find(c => c.id === comp.id);
+              if (moved) {
+                onUpdateComponent(comp.id, {
+                  parentId: targetContainer.id,
+                  left: Math.max(0, snap(moved.left)),
+                  top: Math.max(0, snap(moved.top))
+                });
+              }
             }
           } else if (!targetContainer && comp.parentId) {
             onUpdateComponent(comp.id, {
@@ -730,6 +729,10 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
               <div
                 key={comp.id}
                 id={`comp-${comp.id}`}
+                data-comp-name={comp.name}
+                data-parent-id={comp.parentId || ''}
+                data-is-container={isContainer ? 'true' : 'false'}
+                data-children={getChildrenIds(form.components, comp.id).join(',')}
                 className={`designer-component-wrapper ${isSelected ? 'selected' : ''} ${isContainer ? 'is-container' : ''}`}
                 style={{
                   left: `${displayLeft}px`,

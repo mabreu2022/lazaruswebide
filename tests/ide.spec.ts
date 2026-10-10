@@ -51,3 +51,39 @@ test('TScrollBox está na aba Containers', async ({ page }) => {
   await page.locator('.palette-tab', { hasText: 'Containers' }).first().click({ force: true, timeout: 5000 });
   await expect(page.locator('.palette-item-btn', { hasText: 'ScrollBox' })).toBeVisible();
 });
+
+
+test('Containers: componente solto no Panel vira filho, acompanha o pai e é excluído em cascata', async ({ page }) => {
+  await placeFromPalette(page, 'Standard', 'Panel', 60, 60);
+  const panel = page.locator('[data-comp-name="Panel1"]');
+  await expect(panel).toHaveAttribute('data-is-container', 'true');
+  const pBox = (await panel.boundingBox())!;
+
+  // solta um Button dentro do Panel (clique na paleta + clique dentro do panel)
+  await placeFromPalette(page, 'Standard', 'Button', 60 + 40, 60 + 40);
+  const btn = page.locator('[data-comp-name="Button2"]');
+  await expect(btn).toHaveAttribute('data-parent-id', /.+/);
+  await expect(panel).toHaveAttribute('data-children', /.+/);
+
+  // o botão fica visualmente dentro do panel
+  const bBox = (await btn.boundingBox())!;
+  expect(bBox.x).toBeGreaterThanOrEqual(pBox.x);
+  expect(bBox.y).toBeGreaterThanOrEqual(pBox.y);
+  expect(bBox.x + bBox.width).toBeLessThanOrEqual(pBox.x + pBox.width + 1);
+
+  // arrastar o Panel move o botão junto (mesma distância)
+  await panel.hover({ position: { x: 5, y: 5 } });
+  await page.mouse.down();
+  await page.mouse.move(pBox.x + 5 + 80, pBox.y + 5 + 50, { steps: 8 });
+  await page.mouse.up();
+  const bBox2 = (await btn.boundingBox())!;
+  expect(Math.round(bBox2.x - bBox.x)).toBeGreaterThan(40);
+  expect(Math.round(bBox2.y - bBox.y)).toBeGreaterThan(20);
+  await expect(btn).toHaveAttribute('data-parent-id', /.+/);
+
+  // excluir o Panel remove o botão (cascata)
+  await panel.click({ position: { x: 5, y: 5 }, force: true });
+  await page.keyboard.press('Delete');
+  await expect(page.locator('[data-comp-name="Panel1"]')).toHaveCount(0);
+  await expect(page.locator('[data-comp-name="Button2"]')).toHaveCount(0);
+});
