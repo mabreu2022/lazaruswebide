@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type {
   LComponent,
   LComponentType,
@@ -12,8 +12,8 @@ import { ComponentPalette } from './components/ComponentPalette';
 import { FormDesigner } from './components/FormDesigner';
 import { ObjectInspector } from './components/ObjectInspector';
 import { CodeEditor } from './components/CodeEditor';
-import { RunModal } from './components/RunModal';
 import { BottomConsole } from './components/BottomConsole';
+import { StandaloneRunner } from './components/StandaloneRunner';
 import { getSampleProject } from './data/sampleProjects';
 import { generateUnitPas, generateLFM, generateProjectLpr } from './utils/pascalGenerator';
 import './App.css';
@@ -84,6 +84,20 @@ const INITIAL_FORM: LForm = {
 };
 
 export const App: React.FC = () => {
+  // Check if opened as standalone execution window
+  const isRunMode = typeof window !== 'undefined' && (
+    window.location.search.includes('mode=run') ||
+    window.location.hash.includes('run')
+  );
+
+  if (isRunMode) {
+    return <StandaloneRunner />;
+  }
+
+  return <LazarusIDE />;
+};
+
+const LazarusIDE: React.FC = () => {
   const [form, setForm] = useState<LForm>(INITIAL_FORM);
   const [history, setHistory] = useState<LForm[]>([INITIAL_FORM]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -97,11 +111,15 @@ export const App: React.FC = () => {
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isConsoleCollapsed, setIsConsoleCollapsed] = useState<boolean>(false);
+
   const [activeEventToEdit, setActiveEventToEdit] = useState<{
     componentId: string;
     eventName: string;
     procedureName: string;
   } | undefined>(undefined);
+
+  const runnerWindowRef = useRef<Window | null>(null);
 
   const [consoleLogs, setConsoleLogs] = useState<ConsoleMessage[]>([
     {
@@ -129,6 +147,33 @@ export const App: React.FC = () => {
       }
     ]);
   }, []);
+
+  // Listen for logs streamed from the standalone execution window
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('lazarus_runner_bus');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'RUN_LOG') {
+          addConsoleLog(event.data.text, event.data.logType || 'info');
+        }
+      };
+    } catch {
+      // Fallback
+    }
+
+    const handleWindowMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'RUN_LOG') {
+        addConsoleLog(event.data.text, event.data.logType || 'info');
+      }
+    };
+    window.addEventListener('message', handleWindowMessage);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener('message', handleWindowMessage);
+    };
+  }, [addConsoleLog]);
 
   // Push new form state to history for Undo/Redo
   const pushState = useCallback((newForm: LForm) => {
@@ -199,7 +244,7 @@ export const App: React.FC = () => {
 
     pushState(updatedForm);
     setSelectedComponentIds([newCompId]);
-    setSelectedPaletteComponent(null); // Return to pointer mode
+    setSelectedPaletteComponent(null);
     addConsoleLog(`Componente criado: ${name} (${type}) em [${x}, ${y}]`, 'success');
   }, [form, getNextComponentName, pushState, addConsoleLog]);
 
@@ -356,13 +401,59 @@ export const App: React.FC = () => {
     addConsoleLog(`Modelo de exemplo carregado: ${sample.caption}`, 'success');
   }, [pushState, addConsoleLog]);
 
+  // Compile and run application in a new browser window (F9)
+  const handleRun = useCallback(() => {
+    // 1. Expand terminal / messages dock
+    setIsConsoleCollapsed(false);
+
+    // 2. Persist current form state for runner
+    localStorage.setItem('lazarus_runtime_form', JSON.stringify(form));
+
+    // 3. FPC Compiler logs streamed to Messages dock
+    addConsoleLog(`Free Pascal Compiler version 3.2.2 [2026/10/09] for x86_64`, 'info');
+    addConsoleLog(`Copyright (c) 1993-2026 by Florian Klaempfl and others`, 'info');
+    addConsoleLog(`Compilando ${form.name}.pas ...`, 'info');
+    addConsoleLog(`Compilando Project1.lpr ...`, 'info');
+    addConsoleLog(`Ligador: Vinculando recursos LCL Widgetset...`, 'info');
+    addConsoleLog(`[Sucesso] Compilação finalizada (0 erros, 0 avisos).`, 'success');
+    addConsoleLog(`[Execução] Abrindo aplicação em nova janela do navegador...`, 'success');
+
+    // 4. Open in new browser window
+    const popupWidth = Math.max(form.width + 40, 560);
+    const popupHeight = Math.max(form.height + 80, 480);
+    const popupLeft = Math.max(40, window.screenX + 120);
+    const popupTop = Math.max(40, window.screenY + 100);
+
+    const runUrl = `${window.location.origin}${window.location.pathname}?mode=run`;
+    const win = window.open(
+      runUrl,
+      'LazarusAppWindow',
+      `width=${popupWidth},height=${popupHeight},left=${popupLeft},top=${popupTop},resizable=yes,scrollbars=yes`
+    );
+
+    if (win) {
+      win.focus();
+      runnerWindowRef.current = win;
+      setIsRunning(true);
+    } else {
+      addConsoleLog('[Aviso] Popup bloqueado pelo navegador. Por favor permita popups para este site.', 'warning');
+    }
+  }, [form, addConsoleLog]);
+
+  const handleStop = useCallback(() => {
+    if (runnerWindowRef.current && !runnerWindowRef.current.closed) {
+      runnerWindowRef.current.close();
+    }
+    setIsRunning(false);
+    addConsoleLog('[Execução] Processo finalizado pelo usuário na IDE (Stop).', 'info');
+  }, [addConsoleLog]);
+
   // Global F9 & F12 keyboard shortcuts
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.key === 'F9') {
         e.preventDefault();
-        setIsRunning(true);
-        addConsoleLog(`Compilando e inicializando execução (F9)...`, 'info');
+        handleRun();
       } else if (e.key === 'F12') {
         e.preventDefault();
         handleToggleFormCode();
@@ -370,7 +461,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener('keydown', handleGlobalShortcuts);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
-  }, [handleToggleFormCode, addConsoleLog]);
+  }, [handleRun, handleToggleFormCode]);
 
   const ideState: IDEState = {
     form,
@@ -392,11 +483,8 @@ export const App: React.FC = () => {
       {/* Top Menu Bar & Actions */}
       <TopMenuBar
         state={ideState}
-        onRun={() => {
-          setIsRunning(true);
-          addConsoleLog(`Projeto ${form.name} compilado e executado (F9).`, 'success');
-        }}
-        onStop={() => setIsRunning(false)}
+        onRun={handleRun}
+        onStop={handleStop}
         onToggleFormCode={handleToggleFormCode}
         onToggleTheme={() => setTheme(t => t === 'lazarus-dark' ? 'lazarus-classic' : 'lazarus-dark')}
         onToggleSnapGrid={() => {
@@ -482,34 +570,20 @@ export const App: React.FC = () => {
               activeEventToEdit={activeEventToEdit}
               onChangeActiveFile={setActiveCodeFile}
               onToggleFormCode={handleToggleFormCode}
-              onUpdateEventCode={(componentId, eventName, code) => {
-                if (!componentId || componentId === '__form__') {
-                  setForm(f => ({ ...f, eventCode: { ...f.eventCode, [eventName]: code } }));
-                } else {
-                  handleUpdateComponent(componentId, {
-                    eventCode: { ...form.components.find(c => c.id === componentId)?.eventCode, [eventName]: code }
-                  });
-                }
-              }}
             />
           )}
         </main>
       </div>
 
-      {/* Bottom Dock: Compiler Messages & Shortcuts */}
+      {/* Bottom Dock: Compiler Messages & Terminal with Live Streaming */}
       <BottomConsole
         logs={consoleLogs}
+        isRunning={isRunning}
+        isCollapsed={isConsoleCollapsed}
+        onToggleCollapse={() => setIsConsoleCollapsed(c => !c)}
         onClearLogs={() => setConsoleLogs([])}
+        onReopenWindow={handleRun}
       />
-
-      {/* Live Run Simulator Modal (F9) */}
-      {isRunning && (
-        <RunModal
-          form={form}
-          onClose={() => setIsRunning(false)}
-          onLog={(text, type) => addConsoleLog(text, type)}
-        />
-      )}
     </div>
   );
 };

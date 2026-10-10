@@ -1730,6 +1730,70 @@
   font-family: var(--font-code);
 }
 
+.live-process-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--accent-green);
+  font-family: var(--font-code);
+}
+
+.live-pulse-dot {
+  width: 7px;
+  height: 7px;
+  background-color: var(--accent-green);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--accent-green);
+  animation: pulse 1.5s infinite;
+}
+
+.reopen-window-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #10b981;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.reopen-window-btn:hover {
+  background: rgba(16, 185, 129, 0.3);
+  color: #ffffff;
+}
+
+.lazarus-bottom-dock.maximized {
+  max-height: 50vh !important;
+  height: 50vh;
+}
+
+.lazarus-bottom-dock.maximized .bottom-dock-body {
+  height: calc(50vh - 30px);
+}
+
+/* Standalone App Window Root */
+.standalone-app-root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #0e1117;
+  font-family: var(--font-ui);
+}
+
+.standalone-window {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .dock-btn {
   padding: 3px;
   border-radius: var(--radius-sm);
