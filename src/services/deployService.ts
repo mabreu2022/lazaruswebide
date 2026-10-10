@@ -171,19 +171,20 @@ export function generateBundleFiles(
   </head>
   <body>
     <div id="lazarus-app-viewport">
-      <div id="form-window-container" class="form-window">
-        <div class="window-titlebar">
+      <div id="form-window-container" class="form-window is-maximized">
+        <div class="window-titlebar" id="window-titlebar">
           <div class="titlebar-left">
             <span class="window-icon">⚡</span>
             <span class="window-title" id="window-caption">${activeForm.caption || activeForm.name}</span>
           </div>
           <div class="titlebar-controls">
-            <button class="win-btn" title="Minimizar">_</button>
-            <button class="win-btn" title="Maximizar">□</button>
-            <button class="win-btn win-close" title="Fechar">✕</button>
+            <button class="win-btn win-fullscreen" id="win-fullscreen-btn" title="Tela Cheia Navegador (F11)">⛶</button>
+            <button class="win-btn win-min" id="win-min-btn" title="Minimizar">_</button>
+            <button class="win-btn win-max" id="win-max-btn" title="Restaurar / Maximizar Janela">🗗</button>
+            <button class="win-btn win-close" id="win-close-btn" title="Fechar">✕</button>
           </div>
         </div>
-        <div id="form-canvas" class="window-canvas" style="width: ${activeForm.width}px; height: ${activeForm.height}px;">
+        <div id="form-canvas" class="window-canvas" data-default-width="${activeForm.width}" data-default-height="${activeForm.height}">
           <!-- Componentes renderizados via app.js -->
         </div>
       </div>
@@ -252,23 +253,47 @@ body, html {
 }
 
 #lazarus-app-viewport {
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
-  padding: 20px;
+  background-color: var(--bg-desktop);
+  overflow: hidden;
+}
+
+/* Modo Tela Cheia (Padrão) */
+.form-window.is-maximized {
+  width: 100vw !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.form-window.is-maximized .window-canvas {
+  width: 100% !important;
+  height: calc(100vh - 34px) !important;
+  border-radius: 0 !important;
+}
+
+/* Modo Janela Flutuante (quando restaurado pelo botão 🗗) */
+.form-window:not(.is-maximized) {
+  border-radius: 8px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--border-color);
+  max-width: 98vw;
+  max-height: 96vh;
 }
 
 .form-window {
   background-color: var(--bg-window);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.15s ease, height 0.15s ease, border-radius 0.15s ease;
 }
 
 .window-titlebar {
@@ -501,6 +526,67 @@ body, html {
 
   if (msgOk) msgOk.onclick = hideMessage;
   if (msgClose) msgClose.onclick = hideMessage;
+
+  // Window Controls (Maximize / Fullscreen / Restore / Minimize)
+  const winContainer = document.getElementById('form-window-container');
+  const winMaxBtn = document.getElementById('win-max-btn');
+  const winMinBtn = document.getElementById('win-min-btn');
+  const winCloseBtn = document.getElementById('win-close-btn');
+  const winFullscreenBtn = document.getElementById('win-fullscreen-btn');
+  const winTitlebar = document.getElementById('window-titlebar');
+  const defaultWidth = parseInt(canvas.getAttribute('data-default-width') || '640', 10);
+  const defaultHeight = parseInt(canvas.getAttribute('data-default-height') || '480', 10);
+
+  function toggleMaximize() {
+    if (!winContainer) return;
+    const isMax = winContainer.classList.contains('is-maximized');
+    if (isMax) {
+      winContainer.classList.remove('is-maximized');
+      winContainer.style.width = defaultWidth + 'px';
+      winContainer.style.height = (defaultHeight + 34) + 'px';
+      canvas.style.width = defaultWidth + 'px';
+      canvas.style.height = defaultHeight + 'px';
+      if (winMaxBtn) winMaxBtn.textContent = '□';
+    } else {
+      winContainer.classList.add('is-maximized');
+      winContainer.style.width = '';
+      winContainer.style.height = '';
+      canvas.style.width = '';
+      canvas.style.height = '';
+      if (winMaxBtn) winMaxBtn.textContent = '🗗';
+    }
+  }
+
+  if (winMaxBtn) winMaxBtn.onclick = toggleMaximize;
+  if (winTitlebar) {
+    winTitlebar.ondblclick = (e) => {
+      if (e.target.closest('.win-btn')) return;
+      toggleMaximize();
+    };
+  }
+  if (winFullscreenBtn) {
+    winFullscreenBtn.onclick = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+        winFullscreenBtn.textContent = '✖';
+      } else {
+        document.exitFullscreen().catch(() => {});
+        winFullscreenBtn.textContent = '⛶';
+      }
+    };
+  }
+  if (winCloseBtn) {
+    winCloseBtn.onclick = () => {
+      if (confirm('Deseja fechar a aplicação?')) {
+        window.close();
+      }
+    };
+  }
+  if (winMinBtn) {
+    winMinBtn.onclick = () => {
+      toggleMaximize();
+    };
+  }
 
   // Pascal expression evaluator
   function evaluateExpression(expr) {
