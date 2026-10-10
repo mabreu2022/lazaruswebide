@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { LForm } from '../types/lazarus';
+import type { LForm, LPureUnit } from '../types/lazarus';
 import { generateUnitPas, generateLFM, generateProjectLpr } from '../utils/pascalGenerator';
 import {
   FileCode,
@@ -13,8 +13,10 @@ import {
 interface CodeEditorProps {
   form: LForm;
   forms?: LForm[];
+  pureUnits?: LPureUnit[];
   activeFile: string;
   openFiles?: string[];
+  hideHeader?: boolean;
   activeEventToEdit?: { componentId: string; eventName: string; procedureName: string };
   onChangeActiveFile: (file: string) => void;
   onCloseFile?: (file: string) => void;
@@ -26,8 +28,10 @@ interface CodeEditorProps {
 export const CodeEditor: React.FC<CodeEditorProps> = ({
   form,
   forms,
+  pureUnits = [],
   activeFile,
   openFiles,
+  hideHeader = false,
   activeEventToEdit,
   onChangeActiveFile,
   onCloseFile,
@@ -60,14 +64,21 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       return userEditedCode[activeFile];
     }
     const lower = activeFile.toLowerCase();
+
+    // Check pure units first
+    const matchedPure = pureUnits.find(u => u.fileName.toLowerCase() === lower);
+    if (matchedPure) {
+      return matchedPure.code;
+    }
+
     if (lower.endsWith('.lpr')) {
-      return generateProjectLpr(allForms);
+      return generateProjectLpr(allForms, pureUnits);
     }
     if (lower.endsWith('.lfm')) {
       return generateLFM(currentEditingForm);
     }
     return generateUnitPas(currentEditingForm);
-  }, [activeFile, allForms, currentEditingForm, userEditedCode]);
+  }, [activeFile, allForms, currentEditingForm, pureUnits, userEditedCode]);
 
   const pascalCode = getCurrentCode();
 
@@ -133,91 +144,93 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   return (
     <div className="lazarus-code-editor-view">
-      {/* File Tabs & Actions Header */}
-      <div className="code-editor-header">
-        <div className="code-files-tabs">
-          {displayedFiles.map(fileKey => {
-            const lower = fileKey.toLowerCase();
-            const isPas = lower.endsWith('.pas');
-            const isLfm = lower.endsWith('.lfm');
-            const isLpr = lower.endsWith('.lpr');
-            const isActive = activeFile.toLowerCase() === lower;
+      {/* File Tabs & Actions Header (Hidden when unified workspace header is used) */}
+      {!hideHeader && (
+        <div className="code-editor-header">
+          <div className="code-files-tabs">
+            {displayedFiles.map(fileKey => {
+              const lower = fileKey.toLowerCase();
+              const isPas = lower.endsWith('.pas');
+              const isLfm = lower.endsWith('.lfm');
+              const isLpr = lower.endsWith('.lpr');
+              const isActive = activeFile.toLowerCase() === lower;
 
-            const matchedForm = allForms.find(f => {
-              const uName = (f.unitName || '').toLowerCase();
-              return uName && (lower === `${uName}.pas` || lower === `${uName}.lfm`);
-            });
+              const matchedForm = allForms.find(f => {
+                const uName = (f.unitName || '').toLowerCase();
+                return uName && (lower === `${uName}.pas` || lower === `${uName}.lfm`);
+              });
 
-            return (
-              <div
-                key={fileKey}
-                className={`file-tab ${isActive ? 'active' : ''}`}
-                onClick={() => {
-                  onChangeActiveFile(lower);
-                  if (matchedForm) {
-                    onSelectForm?.(matchedForm.id);
-                  }
-                }}
-                title={`Arquivo: ${fileKey}`}
-              >
-                {isPas && <FileCode size={13} className="icon-pascal" />}
-                {isLfm && <FolderOpen size={13} className="icon-lfm" />}
-                {isLpr && <FileCode size={13} className="icon-lpr" />}
-                <span className="file-tab-label">{fileKey}</span>
-                {onCloseFile && (
+              return (
+                <div
+                  key={fileKey}
+                  className={`file-tab ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    onChangeActiveFile(lower);
+                    if (matchedForm) {
+                      onSelectForm?.(matchedForm.id);
+                    }
+                  }}
+                  title={`Arquivo: ${fileKey}`}
+                >
+                  {isPas && <FileCode size={13} className="icon-pascal" />}
+                  {isLfm && <FolderOpen size={13} className="icon-lfm" />}
+                  {isLpr && <FileCode size={13} className="icon-lpr" />}
+                  <span className="file-tab-label">{fileKey}</span>
+                  {onCloseFile && (
+                    <button
+                      className="tab-close-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCloseFile(fileKey);
+                      }}
+                      title={`Fechar aba ${fileKey}`}
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="code-editor-actions">
+            {activeFile.toLowerCase().endsWith('.pas') && (
+              <div className="quick-snippets">
+                <button
+                  className="snippet-btn"
+                  onClick={() => handleInsertSnippet("  ShowMessage('Olá do Lazarus Web!');\n")}
+                  title="Inserir ShowMessage"
+                >
+                  + ShowMessage
+                </button>
+                {currentEditingForm.components[0] && (
                   <button
-                    className="tab-close-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCloseFile(fileKey);
-                    }}
-                    title={`Fechar aba ${fileKey}`}
+                    className="snippet-btn"
+                    onClick={() => handleInsertSnippet(`  ${currentEditingForm.components[0].name}.Caption := 'Atualizado!';\n`)}
+                    title="Inserir modificação de propriedade"
                   >
-                    <X size={11} />
+                    + {currentEditingForm.components[0].name}.Caption
                   </button>
                 )}
               </div>
-            );
-          })}
+            )}
+
+            <button className="code-action-btn" onClick={handleCopy} title="Copiar código">
+              {copied ? <Check size={14} className="icon-green" /> : <Copy size={14} />}
+              <span>{copied ? 'Copiado!' : 'Copiar'}</span>
+            </button>
+
+            <button
+              className="code-action-btn return-form-btn"
+              onClick={onToggleFormCode}
+              title="Voltar ao Designer Visual (F12)"
+            >
+              <Layout size={14} />
+              <span>Voltar ao Form (F12)</span>
+            </button>
+          </div>
         </div>
-
-        <div className="code-editor-actions">
-          {activeFile.toLowerCase().endsWith('.pas') && (
-            <div className="quick-snippets">
-              <button
-                className="snippet-btn"
-                onClick={() => handleInsertSnippet("  ShowMessage('Olá do Lazarus Web!');\n")}
-                title="Inserir ShowMessage"
-              >
-                + ShowMessage
-              </button>
-              {currentEditingForm.components[0] && (
-                <button
-                  className="snippet-btn"
-                  onClick={() => handleInsertSnippet(`  ${currentEditingForm.components[0].name}.Caption := 'Atualizado!';\n`)}
-                  title="Inserir modificação de propriedade"
-                >
-                  + {currentEditingForm.components[0].name}.Caption
-                </button>
-              )}
-            </div>
-          )}
-
-          <button className="code-action-btn" onClick={handleCopy} title="Copiar código">
-            {copied ? <Check size={14} className="icon-green" /> : <Copy size={14} />}
-            <span>{copied ? 'Copiado!' : 'Copiar'}</span>
-          </button>
-
-          <button
-            className="code-action-btn return-form-btn"
-            onClick={onToggleFormCode}
-            title="Voltar ao Designer Visual (F12)"
-          >
-            <Layout size={14} />
-            <span>Voltar ao Form (F12)</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Editor Main Canvas or Empty State */}
       {displayedFiles.length === 0 ? (

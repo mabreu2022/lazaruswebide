@@ -20,16 +20,11 @@ import {
   Code,
   ArrowUp,
   ArrowDown,
-  AlignCenter,
-  Plus
+  AlignCenter
 } from 'lucide-react';
 
 interface FormDesignerProps {
   form: LForm;
-  forms?: LForm[];
-  activeFormId?: string;
-  onSwitchForm?: (formId: string) => void;
-  onNewForm?: () => void;
   selectedComponentIds: string[];
   selectedPaletteComponent: LComponentType | null;
   gridSize: number;
@@ -118,10 +113,6 @@ function isComponentVisibleInHierarchy(comp: LComponent, components: LComponent[
 
 export const FormDesigner: React.FC<FormDesignerProps> = ({
   form,
-  forms,
-  activeFormId,
-  onSwitchForm,
-  onNewForm,
   selectedComponentIds,
   selectedPaletteComponent,
   gridSize,
@@ -648,33 +639,9 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
       className={`lazarus-designer-workspace ${selectedPaletteComponent ? 'placement-mode' : ''}`}
       onClick={() => setContextMenu(null)}
     >
-      {/* Multi-Form Navigation Tabs (Lazarus Project Forms) */}
-      <div className="designer-form-tabs-bar">
-        {forms && forms.map(f => (
-          <button
-            key={f.id}
-            className={`designer-form-tab ${f.id === (activeFormId || form.id) ? 'active' : ''}`}
-            onClick={() => onSwitchForm?.(f.id)}
-          >
-            <span className="tab-icon">🗂️</span>
-            <span className="tab-name">{f.name}</span>
-            <span className="tab-unit">({f.unitName || 'Unit1'}.pas)</span>
-          </button>
-        ))}
-        {onNewForm && (
-          <button
-            className="designer-form-tab new-form-btn"
-            onClick={onNewForm}
-            title="Criar Novo Formulário (Ctrl+N)"
-          >
-            <Plus size={12} /> Novo Form
-          </button>
-        )}
-      </div>
-
-      {/* Visual Form Window (Delphi / Lazarus Desktop Form) */}
+      {/* Visual Form Window (Delphi / Lazarus Desktop Form or DataModule) */}
       <div
-        className="lazarus-form-window"
+        className={`lazarus-form-window ${form.isDataModule ? 'datamodule-window' : ''}`}
         style={{
           left: `${form.left}px`,
           top: `${form.top}px`,
@@ -689,8 +656,10 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
           onDoubleClick={onToggleFormCode}
         >
           <div className="titlebar-caption">
-            <span className="window-icon">🗂️</span>
-            <span className="window-title-text">{form.caption}</span>
+            <span className="window-icon">{form.isDataModule ? '🗄️' : '🗂️'}</span>
+            <span className="window-title-text">
+              {form.isDataModule ? `${form.name}: T${form.name} [DataModule]` : form.caption}
+            </span>
           </div>
 
           <div className="window-control-buttons">

@@ -164,14 +164,24 @@ export interface LForm {
   color: string;
   fontFamily: string;
   fontSize: number;
+  isDataModule?: boolean;
   components: LComponent[];
   events: Record<string, string>;
   eventCode: Record<string, string>;
 }
 
+export interface LPureUnit {
+  id: string;
+  name: string;
+  unitName: string;
+  fileName: string;
+  code: string;
+}
+
 export interface IDEState {
   form: LForm;
   forms?: LForm[];
+  pureUnits?: LPureUnit[];
   activeFormId?: string;
   selectedComponentIds: string[];
   activeTab: 'form' | 'code' | 'lfm' | 'project';

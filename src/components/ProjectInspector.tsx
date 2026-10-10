@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { LForm } from '../types/lazarus';
+import type { LForm, LPureUnit } from '../types/lazarus';
 import {
   Folder,
   FileCode,
@@ -17,16 +17,21 @@ import {
   Network,
   Filter,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Database
 } from 'lucide-react';
 
 interface ProjectInspectorProps {
   forms: LForm[];
+  pureUnits?: LPureUnit[];
   activeFormId: string;
   onSelectForm: (formId: string) => void;
   onOpenCodeFile: (fileName: string) => void;
   onNewForm: () => void;
+  onNewDataModule?: () => void;
+  onNewPureUnit?: () => void;
   onRemoveForm: (formId: string) => void;
+  onRemovePureUnit?: (unitId: string) => void;
   onClose?: () => void;
   onToggleFloat?: () => void;
   isFloating?: boolean;
@@ -34,11 +39,15 @@ interface ProjectInspectorProps {
 
 export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   forms,
+  pureUnits = [],
   activeFormId,
   onSelectForm,
   onOpenCodeFile,
   onNewForm,
+  onNewDataModule,
+  onNewPureUnit,
   onRemoveForm,
+  onRemovePureUnit,
   onClose,
   onToggleFloat,
   isFloating = false
@@ -141,15 +150,41 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                 >
                   <Plus size={12} /> Novo Formulário (.pas + .lfm)
                 </div>
+                <div
+                  className="add-dropdown-item"
+                  onClick={() => {
+                    onNewDataModule?.();
+                    setAddMenuOpen(false);
+                  }}
+                >
+                  <Database size={12} /> Novo DataModule (.pas + .lfm)
+                </div>
+                <div
+                  className="add-dropdown-item"
+                  onClick={() => {
+                    onNewPureUnit?.();
+                    setAddMenuOpen(false);
+                  }}
+                >
+                  <FileCode size={12} /> Nova Unit de Classes (.pas)
+                </div>
               </div>
             )}
           </div>
 
           {/* Remover Button */}
           <button
-            className={`tb-btn tb-remove ${forms.length <= 1 ? 'disabled' : ''}`}
-            disabled={forms.length <= 1}
+            className={`tb-btn tb-remove ${(forms.length <= 1 && pureUnits.length === 0) ? 'disabled' : ''}`}
+            disabled={forms.length <= 1 && pureUnits.length === 0}
             onClick={() => {
+              const pureTarget = pureUnits.find(u => u.fileName.toLowerCase() === (selectedItem || '').toLowerCase());
+              if (pureTarget) {
+                if (confirm(`Deseja remover a unit ${pureTarget.fileName} do projeto?`)) {
+                  onRemovePureUnit?.(pureTarget.id);
+                }
+                return;
+              }
+
               const target = forms.find(f => (f.unitName || '').toLowerCase() === (selectedItem || '').replace('.pas', '').toLowerCase()) ||
                 forms.find(f => f.id === activeFormId);
               if (target && forms.length > 1) {
@@ -234,7 +269,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
             {isFilesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             <Folder size={13} className="icon-folder" />
             <span className="group-label">Arquivos</span>
-            <span className="count-tag">({forms.length + 1})</span>
+            <span className="count-tag">({forms.length + pureUnits.length + 1})</span>
           </div>
 
           {isFilesExpanded && (
@@ -251,7 +286,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                 <span className="leaf-badge lpr-badge">Programa</span>
               </div>
 
-              {/* Form Units: unit1.pas, unit2.pas, etc. */}
+              {/* Form & DataModule Units */}
               {displayForms.map(f => {
                 const uName = (f.unitName || 'Unit1').toLowerCase();
                 const pasName = `${uName}.pas`;
@@ -268,7 +303,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                     <FileCode size={13} className="icon-pascal" />
                     <span className="leaf-name">{pasName}</span>
                     <span className="leaf-badge">
-                      {f.name} (T{f.name})
+                      {f.isDataModule ? '🗄️ DM' : '📁 Form'}: {f.name}
                     </span>
                     <button
                       className="leaf-open-code-btn"
@@ -276,6 +311,34 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                         e.stopPropagation();
                         onSelectForm(f.id);
                         onOpenCodeFile(pasName);
+                      }}
+                      title="Abrir no editor"
+                    >
+                      <ExternalLink size={10} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Pure Units (Classes) */}
+              {pureUnits.map(u => {
+                const isSelected = selectedItem === u.fileName.toLowerCase();
+                return (
+                  <div
+                    key={u.id}
+                    className={`tree-leaf ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleItemClick(u.fileName)}
+                    onDoubleClick={() => handleItemDoubleClick(u.fileName)}
+                    title={`Unit de Classes: ${u.name} (duplo-clique para abrir)`}
+                  >
+                    <FileCode size={13} className="icon-pascal" />
+                    <span className="leaf-name">{u.fileName}</span>
+                    <span className="leaf-badge lpr-badge">Classe</span>
+                    <button
+                      className="leaf-open-code-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenCodeFile(u.fileName);
                       }}
                       title="Abrir no editor"
                     >

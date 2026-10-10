@@ -36,7 +36,31 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'events'>('properties');
   const [filterQuery, setFilterQuery] = useState('');
-  const [showTree, setShowTree] = useState(false);
+  const [showTree, setShowTree] = useState(true);
+  const [treeHeight, setTreeHeight] = useState<number>(150);
+  const [isDraggingSplitter, setIsDraggingSplitter] = useState<boolean>(false);
+
+  const handleSplitterMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingSplitter(true);
+    const startY = e.clientY;
+    const startHeight = treeHeight;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientY - startY;
+      const newHeight = Math.max(60, Math.min(500, startHeight + delta));
+      setTreeHeight(newHeight);
+    };
+
+    const onMouseUp = () => {
+      setIsDraggingSplitter(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   // Identify selected object (either a component or the form itself)
   const isFormSelected = selectedComponentIds.length === 0;
@@ -115,77 +139,91 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
         <ChevronDown size={14} className="dropdown-arrow" />
       </div>
 
-      {/* Component Tree View (Collapsible, Hierarchical) */}
+      {/* Component Tree View (Collapsible, Hierarchical, Resizable with Mouse) */}
       {showTree && (
-        <div className="component-tree-view">
+        <>
           <div
-            className={`tree-node form-node ${isFormSelected ? 'active' : ''}`}
-            onClick={onSelectForm}
+            className="component-tree-view"
+            style={{ height: `${treeHeight}px`, maxHeight: 'none', minHeight: '60px' }}
           >
-            📁 <strong>{form.name}</strong> (T{form.name})
-          </div>
-          <div className="tree-children">
-            {(() => {
-              const visited = new Set<string>();
+            <div
+              className={`tree-node form-node ${isFormSelected ? 'active' : ''}`}
+              onClick={onSelectForm}
+            >
+              {form.isDataModule ? '🗄️' : '📁'} <strong>{form.name}</strong> (T{form.name})
+            </div>
+            <div className="tree-children">
+              {(() => {
+                const visited = new Set<string>();
 
-              const renderBranch = (parentId: string | undefined, depth: number): React.ReactNode => {
-                const branchComps = form.components.filter(c =>
-                  parentId ? c.parentId === parentId : !c.parentId
-                );
-
-                return branchComps.map(c => {
-                  visited.add(c.id);
-                  const isSelected = selectedComponentIds.includes(c.id);
-                  const isContainer = isContainerComponent(c.type);
-                  const childrenCount = form.components.filter(sub => sub.parentId === c.id).length;
-
-                  return (
-                    <React.Fragment key={c.id}>
-                      <div
-                        className={`tree-node comp-node ${isSelected ? 'active' : ''} ${depth > 1 ? 'is-child-node' : ''}`}
-                        style={{ paddingLeft: `${12 + (depth - 1) * 16}px` }}
-                        onClick={() => onSelectComponent(c.id)}
-                      >
-                        <span className="tree-node-icon">
-                          {isContainer ? (childrenCount > 0 ? '📂' : '📁') : '🧩'}
-                        </span>
-                        <span className="tree-node-name">{c.name}</span>
-                        <span className="tree-type">:{c.type}</span>
-                        {childrenCount > 0 && (
-                          <span className="tree-child-count">[{childrenCount}]</span>
-                        )}
-                      </div>
-                      {isContainer && renderBranch(c.id, depth + 1)}
-                    </React.Fragment>
+                const renderBranch = (parentId: string | undefined, depth: number): React.ReactNode => {
+                  const branchComps = form.components.filter(c =>
+                    parentId ? c.parentId === parentId : !c.parentId
                   );
-                });
-              };
 
-              const renderedRoot = renderBranch(undefined, 1);
+                  return branchComps.map(c => {
+                    visited.add(c.id);
+                    const isSelected = selectedComponentIds.includes(c.id);
+                    const isContainer = isContainerComponent(c.type);
+                    const childrenCount = form.components.filter(sub => sub.parentId === c.id).length;
 
-              // Guard for any orphaned components whose parent was deleted or missing
-              const orphaned = form.components.filter(c => c.parentId && !visited.has(c.id));
-              const renderedOrphans = orphaned.map(c => (
-                <div
-                  key={c.id}
-                  className={`tree-node comp-node ${selectedComponentIds.includes(c.id) ? 'active' : ''}`}
-                  style={{ paddingLeft: '16px' }}
-                  onClick={() => onSelectComponent(c.id)}
-                >
-                  <span>⚠️ {c.name}</span>
-                  <span className="tree-type">:{c.type}</span>
-                </div>
-              ));
+                    return (
+                      <React.Fragment key={c.id}>
+                        <div
+                          className={`tree-node comp-node ${isSelected ? 'active' : ''} ${depth > 1 ? 'is-child-node' : ''}`}
+                          style={{ paddingLeft: `${12 + (depth - 1) * 16}px` }}
+                          onClick={() => onSelectComponent(c.id)}
+                        >
+                          <span className="tree-node-icon">
+                            {isContainer ? (childrenCount > 0 ? '📂' : '📁') : '🧩'}
+                          </span>
+                          <span className="tree-node-name">{c.name}</span>
+                          <span className="tree-type">:{c.type}</span>
+                          {childrenCount > 0 && (
+                            <span className="tree-child-count">[{childrenCount}]</span>
+                          )}
+                        </div>
+                        {isContainer && renderBranch(c.id, depth + 1)}
+                      </React.Fragment>
+                    );
+                  });
+                };
 
-              return (
-                <>
-                  {renderedRoot}
-                  {renderedOrphans}
-                </>
-              );
-            })()}
+                const renderedRoot = renderBranch(undefined, 1);
+
+                // Guard for any orphaned components whose parent was deleted or missing
+                const orphaned = form.components.filter(c => c.parentId && !visited.has(c.id));
+                const renderedOrphans = orphaned.map(c => (
+                  <div
+                    key={c.id}
+                    className={`tree-node comp-node ${selectedComponentIds.includes(c.id) ? 'active' : ''}`}
+                    style={{ paddingLeft: '16px' }}
+                    onClick={() => onSelectComponent(c.id)}
+                  >
+                    <span>⚠️ {c.name}</span>
+                    <span className="tree-type">:{c.type}</span>
+                  </div>
+                ));
+
+                return (
+                  <>
+                    {renderedRoot}
+                    {renderedOrphans}
+                  </>
+                );
+              })()}
+            </div>
           </div>
-        </div>
+
+          {/* Draggable Splitter between Tree and Properties */}
+          <div
+            className={`inspector-tree-splitter ${isDraggingSplitter ? 'dragging' : ''}`}
+            onMouseDown={handleSplitterMouseDown}
+            title="Arraste para redimensionar a divisão da árvore de componentes e propriedades"
+          >
+            <div className="inspector-splitter-grip" />
+          </div>
+        </>
       )}
 
       {/* Tabs Switcher: Propriedades / Eventos */}

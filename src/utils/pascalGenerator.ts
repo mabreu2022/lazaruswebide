@@ -48,9 +48,13 @@ export function generateUnitPas(form: LForm): string {
     .map(comp => `    ${comp.name}: ${comp.type};`)
     .join('\n');
 
+  const baseClass = form.isDataModule ? 'TDataModule' : 'TForm';
+  const defaultUses = form.isDataModule
+    ? 'Classes, SysUtils, Dialogs'
+    : 'Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls, ComCtrls, Grids';
+
   const usesLine = [
-    'Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,',
-    'ExtCtrls, ComCtrls, Grids',
+    defaultUses,
     ...extraUses
   ].join(', ');
 
@@ -67,7 +71,7 @@ type
 
   { T${form.name} }
 
-  T${form.name} = class(TForm)
+  T${form.name} = class(${baseClass})
 ${componentDecls ? componentDecls + '\n' : ''}${eventSignatures.join('\n')}
   private
 
@@ -262,6 +266,17 @@ export function generateLFM(form: LForm): string {
     .map(comp => generateSingleComponentLFM(comp, form, '  '))
     .join('\n');
 
+  if (form.isDataModule) {
+    return `object ${form.name}: T${form.name}
+  OldCreateOrder = False
+  Height = ${Math.round(form.height)}
+  HorizontalOffset = ${Math.round(form.left ?? 350)}
+  VerticalOffset = ${Math.round(form.top ?? 200)}
+  Width = ${Math.round(form.width)}
+${compLfm ? compLfm + '\n' : ''}end
+`;
+  }
+
   return `object ${form.name}: T${form.name}
   Left = ${Math.round(form.left ?? 350)}
   Height = ${Math.round(form.height)}
@@ -276,14 +291,70 @@ ${compLfm ? compLfm + '\n' : ''}end
 }
 
 /**
- * Generates main Lazarus Project (.lpr) file supporting single or multiple forms
+ * Generates a standalone Object Pascal Unit without form/visual layout
  */
-export function generateProjectLpr(formsOrMainName: LForm[] | string): string {
-  const forms: { name: string; unitName: string }[] = Array.isArray(formsOrMainName)
-    ? formsOrMainName.map(f => ({ name: f.name, unitName: f.unitName || 'Unit1' }))
+export function generatePureUnitPas(unitName: string, className: string = 'TMinhaClasse'): string {
+  return `unit ${unitName};
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils;
+
+type
+
+  { ${className} }
+
+  ${className} = class
+  private
+    FId: Integer;
+    FNome: String;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property Id: Integer read FId write FId;
+    property Nome: String read FNome write FNome;
+  end;
+
+implementation
+
+{ ${className} }
+
+constructor ${className}.Create;
+begin
+  inherited Create;
+  FId := 0;
+  FNome := '';
+end;
+
+destructor ${className}.Destroy;
+begin
+  inherited Destroy;
+end;
+
+end.
+`;
+}
+
+/**
+ * Generates main Lazarus Project (.lpr) file supporting multiple forms, datamodules, and pure units
+ */
+export function generateProjectLpr(
+  formsOrMainName: LForm[] | string,
+  pureUnits: { unitName: string }[] = []
+): string {
+  const forms: { name: string; unitName: string; isDataModule?: boolean }[] = Array.isArray(formsOrMainName)
+    ? formsOrMainName.map(f => ({ name: f.name, unitName: f.unitName || 'Unit1', isDataModule: f.isDataModule }))
     : [{ name: formsOrMainName, unitName: 'Unit1' }];
 
-  const unitList = Array.from(new Set(forms.map(f => f.unitName))).join(', ');
+  const allUnitNames = [
+    ...forms.map(f => f.unitName),
+    ...pureUnits.map(u => u.unitName)
+  ];
+  const unitList = Array.from(new Set(allUnitNames)).join(', ');
+
   const createFormCalls = forms
     .map(f => `  Application.CreateForm(T${f.name}, ${f.name});`)
     .join('\n');
@@ -314,14 +385,35 @@ end.
 /**
  * Generates Lazarus Project Information (.lpi) XML file
  */
-export function generateLPI(projectName: string, forms: LForm[]): string {
-  const unitsXml = forms.map((f, idx) => `      <Unit${idx + 1}>
+export function generateLPI(
+  projectName: string,
+  forms: LForm[],
+  pureUnits: { unitName: string }[] = []
+): string {
+  let unitIndex = 1;
+  const formsXml = forms.map((f) => {
+    const xml = `      <Unit${unitIndex}>
         <Filename Value="${f.unitName || 'Unit1'}.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="${f.name}"/>
         <HasResources Value="True"/>
-        <ResourceBaseClass Value="Form"/>
-      </Unit${idx + 1}>`).join('\n');
+        <ResourceBaseClass Value="${f.isDataModule ? 'DataModule' : 'Form'}"/>
+      </Unit${unitIndex}>`;
+    unitIndex++;
+    return xml;
+  }).join('\n');
+
+  const pureUnitsXml = pureUnits.map((u) => {
+    const xml = `      <Unit${unitIndex}>
+        <Filename Value="${u.unitName}.pas"/>
+        <IsPartOfProject Value="True"/>
+        <HasResources Value="False"/>
+      </Unit${unitIndex}>`;
+    unitIndex++;
+    return xml;
+  }).join('\n');
+
+  const totalUnits = 1 + forms.length + pureUnits.length;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
@@ -337,13 +429,13 @@ export function generateLPI(projectName: string, forms: LForm[]): string {
       <UseXPManifest Value="True"/>
       <Icon Value="0"/>
     </General>
-    <Units Count="${forms.length + 1}">
+    <Units Count="${totalUnits}">
       <Unit0>
         <Filename Value="${projectName}.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
-${unitsXml}
-    </Units>
+${formsXml}
+${pureUnitsXml ? pureUnitsXml + '\n' : ''}    </Units>
   </ProjectOptions>
 </CONFIG>
 `;

@@ -15,7 +15,9 @@ import {
   FileCode,
   Layers,
   Sparkles,
-  FolderOpen
+  FolderOpen,
+  Save,
+  Database
 } from 'lucide-react';
 import type { IDEState } from '../types/lazarus';
 
@@ -28,6 +30,10 @@ interface TopMenuBarProps {
   onToggleSnapGrid: () => void;
   onChangeGridSize: (size: number) => void;
   onNewForm: () => void;
+  onNewDataModule: () => void;
+  onNewPureUnit: () => void;
+  onSaveUnit: () => void;
+  onSaveProject: () => void;
   onExportProject: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -47,6 +53,10 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
   onToggleSnapGrid,
   onChangeGridSize,
   onNewForm,
+  onNewDataModule,
+  onNewPureUnit,
+  onSaveUnit,
+  onSaveProject,
   onExportProject,
   onUndo,
   onRedo,
@@ -68,54 +78,61 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
 
   return (
     <header className="lazarus-topbar">
-      {/* App Branding & Title */}
+      {/* Top Bar: Menus positioned at the FAR LEFT like desktop Lazarus */}
       <div className="lazarus-brand-row">
-        <div className="brand-logo">
-          <div className="cheetah-badge">
+        <div className="topbar-left-zone">
+          <div className="brand-mini-icon" title="Lazarus Web IDE">
             <Sparkles size={14} className="badge-icon" />
-            <span>Lazarus Web</span>
           </div>
-          <span className="project-title">
-            Project1.lpi - [{state.form.name}: T{state.form.name}]
-          </span>
-        </div>
 
-        {/* Top Classic Dropdown Menus */}
-        <nav className="classic-menus" onMouseLeave={closeMenu}>
-          {/* Arquivo */}
-          <div className="menu-item-container">
-            <button
-              className={`menu-btn ${activeMenu === 'file' ? 'active' : ''}`}
-              onClick={() => toggleMenu('file')}
-            >
-              <u>A</u>rquivo
-            </button>
-            {activeMenu === 'file' && (
-              <div className="menu-dropdown">
-                <div className="dropdown-action" onClick={() => { onNewForm(); closeMenu(); }}>
-                  <Plus size={14} /> Novo Formulário <span className="shortcut">Ctrl+N</span>
+          {/* Top Classic Dropdown Menus */}
+          <nav className="classic-menus" onMouseLeave={closeMenu}>
+            {/* Arquivo */}
+            <div className="menu-item-container">
+              <button
+                className={`menu-btn ${activeMenu === 'file' ? 'active' : ''}`}
+                onClick={() => toggleMenu('file')}
+              >
+                <u>A</u>rquivo
+              </button>
+              {activeMenu === 'file' && (
+                <div className="menu-dropdown">
+                  <div className="dropdown-action" onClick={() => { onNewForm(); closeMenu(); }}>
+                    <Plus size={14} /> Novo Formulário <span className="shortcut">Ctrl+N</span>
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onNewDataModule(); closeMenu(); }}>
+                    <Database size={14} /> Novo DataModule (.pas + .lfm)
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onNewPureUnit(); closeMenu(); }}>
+                    <FileCode size={14} /> Nova Unit de Classes (.pas)
+                  </div>
+                  <div className="dropdown-divider" />
+                  <div className="dropdown-action" onClick={() => { onSaveUnit(); closeMenu(); }}>
+                    <Save size={14} /> Salvar Unit Atual <span className="shortcut">Ctrl+S</span>
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onSaveProject(); closeMenu(); }}>
+                    <Save size={14} /> Salvar Projeto <span className="shortcut">Ctrl+Shift+S</span>
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onExportProject(); closeMenu(); }}>
+                    <Download size={14} /> Exportar Projeto (.zip)
+                  </div>
+                  <div className="dropdown-divider" />
+                  <div className="dropdown-submenu-header">Modelos de Exemplo:</div>
+                  <div className="dropdown-action" onClick={() => { onOpenSample('firebird'); closeMenu(); }}>
+                    <Layers size={14} /> Firebird 5.0 + Zeos (CRUD)
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onOpenSample('calc'); closeMenu(); }}>
+                    <Layers size={14} /> Calculadora Visual
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onOpenSample('login'); closeMenu(); }}>
+                    <Layers size={14} /> Tela de Login e Autenticação
+                  </div>
+                  <div className="dropdown-action" onClick={() => { onOpenSample('crud'); closeMenu(); }}>
+                    <Layers size={14} /> Cadastro com TDBGrid
+                  </div>
                 </div>
-                <div className="dropdown-divider" />
-                <div className="dropdown-action" onClick={() => { onExportProject(); closeMenu(); }}>
-                  <Download size={14} /> Exportar Projeto (.pas / .lfm) <span className="shortcut">Ctrl+S</span>
-                </div>
-                <div className="dropdown-divider" />
-                <div className="dropdown-submenu-header">Modelos de Exemplo:</div>
-                <div className="dropdown-action" onClick={() => { onOpenSample('firebird'); closeMenu(); }}>
-                  <Layers size={14} /> Firebird 5.0 + Zeos (CRUD)
-                </div>
-                <div className="dropdown-action" onClick={() => { onOpenSample('calc'); closeMenu(); }}>
-                  <Layers size={14} /> Calculadora Visual
-                </div>
-                <div className="dropdown-action" onClick={() => { onOpenSample('login'); closeMenu(); }}>
-                  <Layers size={14} /> Tela de Login e Autenticação
-                </div>
-                <div className="dropdown-action" onClick={() => { onOpenSample('crud'); closeMenu(); }}>
-                  <Layers size={14} /> Cadastro com TDBGrid
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
           {/* Editar */}
           <div className="menu-item-container">
@@ -199,6 +216,34 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
                 <div
                   className="dropdown-action"
                   onClick={() => {
+                    onNewDataModule();
+                    closeMenu();
+                  }}
+                >
+                  <Database size={14} /> Novo DataModule (.pas + .lfm)
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onNewPureUnit();
+                    closeMenu();
+                  }}
+                >
+                  <FileCode size={14} /> Nova Unit de Classes (.pas)
+                </div>
+                <div className="dropdown-divider" />
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onSaveProject();
+                    closeMenu();
+                  }}
+                >
+                  <Save size={14} /> Salvar Projeto <span className="shortcut">Ctrl+Shift+S</span>
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
                     onExportProject();
                     closeMenu();
                   }}
@@ -249,19 +294,27 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
             )}
           </div>
         </nav>
-
-        {/* Quick info right side */}
-        <div className="topbar-right-status">
-          <span className="status-badge">FPC 3.2.2 / LCL Web</span>
-          <button
-            className="theme-toggle-btn"
-            onClick={onToggleTheme}
-            title={`Alternar tema (Atual: ${state.theme})`}
-          >
-            {state.theme === 'lazarus-dark' ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-        </div>
       </div>
+
+      {/* Quick info right side */}
+      <div className="topbar-right-zone">
+        <span className="project-title">
+          Project1.lpi - [{state.form.name}: T{state.form.name}]
+        </span>
+        <div className="cheetah-badge">
+          <Sparkles size={13} className="badge-icon" />
+          <span>Lazarus Web</span>
+        </div>
+        <span className="status-badge">FPC 3.2.2 / LCL Web</span>
+        <button
+          className="theme-toggle-btn"
+          onClick={onToggleTheme}
+          title={`Alternar tema (Atual: ${state.theme})`}
+        >
+          {state.theme === 'lazarus-dark' ? <Sun size={14} /> : <Moon size={14} />}
+        </button>
+      </div>
+    </div>
 
       {/* Main Action Toolbars (Run, F12, Save, Undo, Grid) */}
       <div className="lazarus-toolbar-row">

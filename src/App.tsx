@@ -4,6 +4,7 @@ import type {
   LComponent,
   LComponentType,
   LForm,
+  LPureUnit,
   IDEState,
   ConsoleMessage
 } from './types/lazarus';
@@ -17,7 +18,24 @@ import { BottomConsole } from './components/BottomConsole';
 import { StandaloneRunner } from './components/StandaloneRunner';
 import { ProjectInspector } from './components/ProjectInspector';
 import { getSampleProject } from './data/sampleProjects';
-import { generateUnitPas, generateLFM, generateProjectLpr, generateLPI } from './utils/pascalGenerator';
+import {
+  generateUnitPas,
+  generateLFM,
+  generateProjectLpr,
+  generateLPI,
+  generatePureUnitPas
+} from './utils/pascalGenerator';
+import {
+  FileCode,
+  FolderOpen,
+  Plus,
+  X,
+  Code2,
+  Layout,
+  Copy,
+  Check,
+  Database
+} from 'lucide-react';
 import './App.css';
 
 const INITIAL_FORM: LForm = {
@@ -136,6 +154,9 @@ const LazarusIDE: React.FC = () => {
     'unit1.pas',
     'unit1.lfm'
   ]);
+  const [pureUnits, setPureUnits] = useState<LPureUnit[]>([]);
+  const [isAddTabOpen, setIsAddTabOpen] = useState<boolean>(false);
+  const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [isProjectInspectorOpen, setIsProjectInspectorOpen] = useState<boolean>(true);
   const [isProjectInspectorFloating, setIsProjectInspectorFloating] = useState<boolean>(false);
   const [theme, setTheme] = useState<'lazarus-dark' | 'lazarus-classic'>('lazarus-dark');
@@ -621,9 +642,15 @@ const LazarusIDE: React.FC = () => {
     setSelectedComponentIds([]);
     const target = forms.find(f => f.id === formId);
     if (target) {
+      const lfmName = `${target.unitName || 'Unit1'}.lfm`.toLowerCase();
       const pasName = `${target.unitName || 'Unit1'}.pas`.toLowerCase();
       setActiveCodeFile(pasName);
-      setOpenCodeFiles(prev => prev.includes(pasName) ? prev : [...prev, pasName]);
+      setOpenCodeFiles(prev => {
+        const next = [...prev];
+        if (!next.includes(pasName)) next.push(pasName);
+        if (!next.includes(lfmName)) next.push(lfmName);
+        return next;
+      });
       addConsoleLog(`Formulário ativo: ${target.name} (${target.unitName || 'Unit1'})`, 'info');
     }
   }, [forms, addConsoleLog]);
@@ -638,13 +665,45 @@ const LazarusIDE: React.FC = () => {
       return prev;
     });
     setActiveCodeFile(lower);
-    setActiveTab('code');
 
-    const matchingForm = forms.find(
-      f => (f.unitName || '').toLowerCase() === lower.replace(/\.(pas|lfm)$/i, '').toLowerCase()
-    );
-    if (matchingForm) {
-      setActiveFormId(matchingForm.id);
+    if (lower.endsWith('.lfm')) {
+      const matchingForm = forms.find(
+        f => (f.unitName || '').toLowerCase() === lower.replace('.lfm', '').toLowerCase()
+      );
+      if (matchingForm) {
+        setActiveFormId(matchingForm.id);
+      }
+      setActiveTab('form');
+    } else {
+      setActiveTab('code');
+      const matchingForm = forms.find(
+        f => (f.unitName || '').toLowerCase() === lower.replace('.pas', '').toLowerCase()
+      );
+      if (matchingForm) {
+        setActiveFormId(matchingForm.id);
+      }
+    }
+  }, [forms]);
+
+  // Select tab from unified top workspace tab header
+  const handleSelectTab = useCallback((fileKey: string) => {
+    const lower = fileKey.toLowerCase();
+    setActiveCodeFile(lower);
+
+    if (lower.endsWith('.lfm')) {
+      const unitPrefix = lower.replace('.lfm', '');
+      const matchedForm = forms.find(f => (f.unitName || '').toLowerCase() === unitPrefix);
+      if (matchedForm) {
+        setActiveFormId(matchedForm.id);
+      }
+      setActiveTab('form');
+    } else {
+      const unitPrefix = lower.replace('.pas', '');
+      const matchedForm = forms.find(f => (f.unitName || '').toLowerCase() === unitPrefix);
+      if (matchedForm) {
+        setActiveFormId(matchedForm.id);
+      }
+      setActiveTab('code');
     }
   }, [forms]);
 
@@ -653,24 +712,107 @@ const LazarusIDE: React.FC = () => {
     const lowerToClose = fileToClose.toLowerCase();
     setOpenCodeFiles(prev => {
       const next = prev.filter(f => f.toLowerCase() !== lowerToClose);
-      if (activeCodeFile.toLowerCase() === lowerToClose) {
-        if (next.length > 0) {
-          const closedIdx = prev.findIndex(f => f.toLowerCase() === lowerToClose);
-          const newActive = next[Math.min(closedIdx, next.length - 1)];
-          setActiveCodeFile(newActive);
-          const matchingForm = forms.find(
-            f => (f.unitName || '').toLowerCase() === newActive.replace(/\.(pas|lfm)$/i, '').toLowerCase()
-          );
-          if (matchingForm) {
-            setActiveFormId(matchingForm.id);
-          }
-        } else {
+      if (next.length > 0) {
+        const closedIdx = prev.findIndex(f => f.toLowerCase() === lowerToClose);
+        const newActive = next[Math.min(closedIdx, next.length - 1)];
+        setActiveCodeFile(newActive);
+        if (newActive.endsWith('.lfm')) {
+          const uPrefix = newActive.replace('.lfm', '');
+          const matched = forms.find(f => (f.unitName || '').toLowerCase() === uPrefix);
+          if (matched) setActiveFormId(matched.id);
           setActiveTab('form');
+        } else {
+          setActiveTab('code');
         }
+      } else {
+        setActiveTab('form');
       }
       return next;
     });
-  }, [activeCodeFile, forms]);
+  }, [forms]);
+
+  // Create New DataModule
+  const handleNewDataModule = useCallback(() => {
+    const existingDMs = forms.filter(f => f.isDataModule);
+    const nextNum = existingDMs.length + 1;
+    const dmName = `DataModule${nextNum}`;
+    const unitName = `UnitDM${nextNum}`;
+    const newId = `dm_${Date.now()}`;
+
+    const newDM: LForm = {
+      id: newId,
+      name: dmName,
+      unitName: unitName,
+      caption: dmName,
+      isDataModule: true,
+      left: Math.min(260, 80 + ((nextNum - 1) % 5) * 20),
+      top: Math.min(200, 60 + ((nextNum - 1) % 5) * 20),
+      width: 480,
+      height: 340,
+      color: '#e5e7eb',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: 13,
+      events: {},
+      eventCode: {},
+      components: []
+    };
+
+    setForms(prev => [...prev, newDM]);
+    setActiveFormId(newId);
+    setSelectedComponentIds([]);
+
+    const pasFile = `${unitName}.pas`.toLowerCase();
+    const lfmFile = `${unitName}.lfm`.toLowerCase();
+    setOpenCodeFiles(prev => {
+      const next = [...prev];
+      if (!next.includes(pasFile)) next.push(pasFile);
+      if (!next.includes(lfmFile)) next.push(lfmFile);
+      return next;
+    });
+    setActiveCodeFile(pasFile);
+    setActiveTab('form');
+
+    addConsoleLog(
+      `[Projeto] Novo DataModule criado: ${dmName} (${unitName}.pas / ${unitName}.lfm)`,
+      'success'
+    );
+  }, [forms, addConsoleLog]);
+
+  // Create New Pure Pascal Unit (Classes / Business logic without form)
+  const handleNewPureUnit = useCallback(() => {
+    const nextNum = pureUnits.length + 1;
+    const unitName = `uClasse${nextNum}`;
+    const className = `TMinhaClasse${nextNum}`;
+    const fileName = `${unitName}.pas`.toLowerCase();
+    const newId = `pure_${Date.now()}`;
+
+    const newUnit: LPureUnit = {
+      id: newId,
+      name: unitName,
+      unitName: unitName,
+      fileName: fileName,
+      code: generatePureUnitPas(unitName, className)
+    };
+
+    setPureUnits(prev => [...prev, newUnit]);
+    setOpenCodeFiles(prev => (prev.includes(fileName) ? prev : [...prev, fileName]));
+    setActiveCodeFile(fileName);
+    setActiveTab('code');
+
+    addConsoleLog(
+      `[Projeto] Nova Unit de Classes criada: ${unitName} (${fileName})`,
+      'success'
+    );
+  }, [pureUnits, addConsoleLog]);
+
+  // Remove Pure Unit from project
+  const handleRemovePureUnit = useCallback((unitId: string) => {
+    const unit = pureUnits.find(u => u.id === unitId);
+    if (!unit) return;
+    setPureUnits(prev => prev.filter(u => u.id !== unitId));
+    setOpenCodeFiles(prev => prev.filter(f => f.toLowerCase() !== unit.fileName.toLowerCase()));
+    addConsoleLog(`[Projeto] Unit ${unit.fileName} removida do projeto.`, 'info');
+  }, [pureUnits, addConsoleLog]);
 
   // Remove Form from project (via Project Inspector)
   const handleRemoveForm = useCallback((formId: string) => {
@@ -703,16 +845,21 @@ const LazarusIDE: React.FC = () => {
       const zip = new JSZip();
 
       // 1. Project file: Project1.lpr
-      zip.file('Project1.lpr', generateProjectLpr(forms));
+      zip.file('Project1.lpr', generateProjectLpr(forms, pureUnits));
 
       // 2. Project information: Project1.lpi
-      zip.file('Project1.lpi', generateLPI('Project1', forms));
+      zip.file('Project1.lpi', generateLPI('Project1', forms, pureUnits));
 
       // 3. For each form in project, export both .pas and .lfm
       forms.forEach(f => {
         const uName = f.unitName || 'Unit1';
         zip.file(`${uName}.pas`, generateUnitPas(f));
         zip.file(`${uName}.lfm`, generateLFM(f));
+      });
+
+      // 4. For each pure unit, export .pas
+      pureUnits.forEach(u => {
+        zip.file(u.fileName, u.code);
       });
 
       const blob = await zip.generateAsync({ type: 'blob' });
@@ -727,7 +874,79 @@ const LazarusIDE: React.FC = () => {
     } catch (err) {
       addConsoleLog(`Erro ao gerar arquivo zip de exportação: ${String(err)}`, 'error');
     }
-  }, [forms, addConsoleLog]);
+  }, [forms, pureUnits, addConsoleLog]);
+
+  // Save current Unit file
+  const handleSaveUnit = useCallback(() => {
+    try {
+      const fileName = activeCodeFile || `${(form.unitName || 'Unit1').toLowerCase()}.pas`;
+      let content = '';
+
+      const pure = pureUnits.find(u => u.fileName.toLowerCase() === fileName.toLowerCase());
+      if (pure) {
+        content = pure.code;
+      } else if (fileName.endsWith('.lpr')) {
+        content = generateProjectLpr(forms, pureUnits);
+      } else if (fileName.endsWith('.lfm')) {
+        const targetForm = forms.find(f => (f.unitName || '').toLowerCase() === fileName.replace('.lfm', '').toLowerCase()) || form;
+        content = generateLFM(targetForm);
+      } else {
+        const targetForm = forms.find(f => (f.unitName || '').toLowerCase() === fileName.replace('.pas', '').toLowerCase()) || form;
+        content = generateUnitPas(targetForm);
+      }
+
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      addConsoleLog(`[Arquivo] Arquivo '${fileName}' salvo com sucesso!`, 'success');
+    } catch (err) {
+      addConsoleLog(`Erro ao salvar arquivo: ${String(err)}`, 'error');
+    }
+  }, [activeCodeFile, form, forms, pureUnits, addConsoleLog]);
+
+  // Save entire project to localStorage and trigger download
+  const handleSaveProject = useCallback(async () => {
+    try {
+      await handleExportProject();
+      try {
+        localStorage.setItem('lazarus_web_saved_project', JSON.stringify({
+          forms,
+          pureUnits,
+          activeFormId,
+          savedAt: new Date().toISOString()
+        }));
+      } catch (e) {
+        // Ignore quota limits
+      }
+      addConsoleLog(`[Projeto] Projeto completo salvo com sucesso!`, 'success');
+    } catch (err) {
+      addConsoleLog(`Erro ao salvar projeto: ${String(err)}`, 'error');
+    }
+  }, [handleExportProject, forms, pureUnits, activeFormId, addConsoleLog]);
+
+  // Copy current code to clipboard
+  const handleCopyCurrentCode = useCallback(() => {
+    let code = '';
+    const lower = activeCodeFile.toLowerCase();
+    const pure = pureUnits.find(u => u.fileName.toLowerCase() === lower);
+    if (pure) {
+      code = pure.code;
+    } else if (lower.endsWith('.lpr')) {
+      code = generateProjectLpr(forms, pureUnits);
+    } else if (lower.endsWith('.lfm')) {
+      code = generateLFM(form);
+    } else {
+      code = generateUnitPas(form);
+    }
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  }, [activeCodeFile, form, forms, pureUnits]);
 
   // Open sample project
   const handleOpenSample = useCallback((type: 'calc' | 'login' | 'crud' | 'firebird') => {
@@ -815,6 +1034,7 @@ const LazarusIDE: React.FC = () => {
   const ideState: IDEState = {
     form,
     forms,
+    pureUnits,
     activeFormId,
     selectedComponentIds,
     activeTab,
@@ -844,6 +1064,10 @@ const LazarusIDE: React.FC = () => {
         }}
         onChangeGridSize={setGridSize}
         onNewForm={handleNewForm}
+        onNewDataModule={handleNewDataModule}
+        onNewPureUnit={handleNewPureUnit}
+        onSaveUnit={handleSaveUnit}
+        onSaveProject={handleSaveProject}
         onExportProject={handleExportProject}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -875,15 +1099,126 @@ const LazarusIDE: React.FC = () => {
           onOpenEventHandler={handleOpenEventHandler}
         />
 
-        {/* Center Dock: Form Designer or Code Editor */}
+        {/* Center Dock: Form Designer or Code Editor with Unified Persistent Tabs */}
         <main className="lazarus-main-center">
+          {/* Unified Persistent Tabs Bar (Identical to Photo 1, Never changes between forms/code) */}
+          <div className="code-editor-header unified-workspace-header">
+            <div className="code-files-tabs">
+              {openCodeFiles.map(fileKey => {
+                const lower = fileKey.toLowerCase();
+                const isPas = lower.endsWith('.pas');
+                const isLfm = lower.endsWith('.lfm');
+                const isLpr = lower.endsWith('.lpr');
+                const isFormActive = activeTab === 'form' && lower === `${(form.unitName || 'Unit1').toLowerCase()}.lfm`;
+                const isCodeActive = activeTab === 'code' && lower === activeCodeFile.toLowerCase();
+                const isActive = isFormActive || isCodeActive;
+
+                return (
+                  <div
+                    key={fileKey}
+                    className={`file-tab ${isActive ? 'active' : ''}`}
+                    onClick={() => handleSelectTab(lower)}
+                    title={`Arquivo: ${fileKey} (Clique para alternar)`}
+                  >
+                    {isPas && <FileCode size={13} className="icon-pascal" />}
+                    {isLfm && <FolderOpen size={13} className="icon-lfm" />}
+                    {isLpr && <FileCode size={13} className="icon-lpr" />}
+                    <span className="file-tab-label">{fileKey}</span>
+                    <button
+                      className="tab-close-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseCodeFile(fileKey);
+                      }}
+                      title={`Fechar aba ${fileKey}`}
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Add New Tab Button & Dropdown */}
+              <div className="add-tab-dropdown-container">
+                <button
+                  className="file-tab-add-btn"
+                  onClick={() => setIsAddTabOpen(prev => !prev)}
+                  title="Novo Formulário, DataModule ou Unit de Classes"
+                >
+                  <Plus size={13} />
+                </button>
+                {isAddTabOpen && (
+                  <div className="add-tab-dropdown-menu" onMouseLeave={() => setIsAddTabOpen(false)}>
+                    <div className="add-tab-item" onClick={() => { handleNewForm(); setIsAddTabOpen(false); }}>
+                      <Layout size={13} /> Novo Formulário (.pas + .lfm)
+                    </div>
+                    <div className="add-tab-item" onClick={() => { handleNewDataModule(); setIsAddTabOpen(false); }}>
+                      <Database size={13} /> Novo DataModule (.pas + .lfm)
+                    </div>
+                    <div className="add-tab-item" onClick={() => { handleNewPureUnit(); setIsAddTabOpen(false); }}>
+                      <FileCode size={13} /> Nova Unit de Classes (.pas)
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Actions at Right (Consistent with Photo 1) */}
+            <div className="code-editor-actions">
+              {activeTab === 'code' ? (
+                <>
+                  <button
+                    className="snippet-btn"
+                    onClick={() => {
+                      addConsoleLog("[Snippets] 'ShowMessage' acionado no editor.", "info");
+                    }}
+                    title="Inserir comando ShowMessage"
+                  >
+                    + ShowMessage
+                  </button>
+                  <button
+                    className="snippet-btn"
+                    onClick={() => {
+                      addConsoleLog("[Snippets] 'ZConnection1.Caption' acionado no editor.", "info");
+                    }}
+                    title="Inserir comando de banco de dados"
+                  >
+                    + ZConnection1.Caption
+                  </button>
+                  <button
+                    className="code-action-btn"
+                    onClick={handleCopyCurrentCode}
+                    title="Copiar código para área de transferência"
+                  >
+                    {copiedCode ? <Check size={14} className="icon-green" /> : <Copy size={14} />}
+                    <span>{copiedCode ? 'Copiado!' : 'Copiar'}</span>
+                  </button>
+                  <button
+                    className="code-action-btn return-form-btn"
+                    onClick={handleToggleFormCode}
+                    title="Voltar ao Designer Visual (F12)"
+                  >
+                    <Layout size={14} />
+                    <span>Voltar ao Form (F12)</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="code-action-btn return-form-btn"
+                  onClick={handleToggleFormCode}
+                  title="Alternar para Código Fonte Pascal (F12)"
+                >
+                  <Code2 size={14} />
+                  <span>Ver Código (F12)</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Center Workspace (FormDesigner or CodeEditor fills full height directly) */}
           {activeTab === 'form' ? (
             <FormDesigner
               form={form}
-              forms={forms}
-              activeFormId={activeFormId}
-              onSwitchForm={handleSwitchForm}
-              onNewForm={handleNewForm}
               selectedComponentIds={selectedComponentIds}
               selectedPaletteComponent={selectedPaletteComponent}
               gridSize={gridSize}
@@ -905,8 +1240,10 @@ const LazarusIDE: React.FC = () => {
             <CodeEditor
               form={form}
               forms={forms}
+              pureUnits={pureUnits}
               activeFile={activeCodeFile}
               openFiles={openCodeFiles}
+              hideHeader={true}
               activeEventToEdit={activeEventToEdit}
               onChangeActiveFile={setActiveCodeFile}
               onCloseFile={handleCloseCodeFile}
@@ -921,11 +1258,15 @@ const LazarusIDE: React.FC = () => {
           <aside className="lazarus-right-dock-panel">
             <ProjectInspector
               forms={forms}
+              pureUnits={pureUnits}
               activeFormId={activeFormId}
               onSelectForm={handleSwitchForm}
               onOpenCodeFile={handleOpenCodeFile}
               onNewForm={handleNewForm}
+              onNewDataModule={handleNewDataModule}
+              onNewPureUnit={handleNewPureUnit}
               onRemoveForm={handleRemoveForm}
+              onRemovePureUnit={handleRemovePureUnit}
               onClose={() => setIsProjectInspectorOpen(false)}
               onToggleFloat={() => setIsProjectInspectorFloating(true)}
               isFloating={false}
@@ -939,11 +1280,15 @@ const LazarusIDE: React.FC = () => {
             <div className="floating-inspector-window-box" onClick={e => e.stopPropagation()}>
               <ProjectInspector
                 forms={forms}
+                pureUnits={pureUnits}
                 activeFormId={activeFormId}
                 onSelectForm={handleSwitchForm}
                 onOpenCodeFile={handleOpenCodeFile}
                 onNewForm={handleNewForm}
+                onNewDataModule={handleNewDataModule}
+                onNewPureUnit={handleNewPureUnit}
                 onRemoveForm={handleRemoveForm}
+                onRemovePureUnit={handleRemovePureUnit}
                 isFloating={true}
                 onClose={() => setIsProjectInspectorFloating(false)}
                 onToggleFloat={() => setIsProjectInspectorFloating(false)}
