@@ -493,6 +493,12 @@
   color: var(--accent-cyan);
 }
 
+.inspector-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .tree-toggle-btn {
   padding: 2px 4px;
   border-radius: var(--radius-sm);
@@ -502,6 +508,43 @@
 .tree-toggle-btn:hover, .tree-toggle-btn.active {
   background-color: var(--bg-hover);
   color: var(--accent-cyan);
+}
+
+.pin-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pin-toggle-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+  border-color: var(--border-subtle);
+}
+
+.pin-icon {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
+}
+
+.pin-icon.pinned {
+  transform: rotate(0deg);
+  color: var(--accent-cyan);
+}
+
+.pin-icon.unpinned {
+  transform: rotate(-90deg);
+  color: var(--text-muted);
+}
+
+.pin-toggle-btn:hover .pin-icon.unpinned {
+  color: var(--text-main);
 }
 
 .component-selector-box {
@@ -2605,6 +2648,132 @@
   padding: 1px 4px;
   border-radius: 2px;
   margin-left: 4px;
+}
+
+/* ==========================================================================
+   Delphi-style Auto-Hide / Pinning Side Tab Strips & Flyouts
+   ========================================================================== */
+
+.delphi-side-tab-strip {
+  width: 28px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--bg-panel-secondary);
+  z-index: 30;
+  flex-shrink: 0;
+  user-select: none;
+  padding-top: 8px;
+}
+
+.delphi-side-tab-strip.left-tab-strip {
+  border-right: 1px solid var(--border-strong);
+}
+
+.delphi-side-tab-strip.right-tab-strip {
+  border-left: 1px solid var(--border-strong);
+}
+
+.delphi-tab-strip-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 12px 2px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  border-radius: 2px;
+  transition: all 0.15s ease;
+}
+
+.delphi-tab-strip-btn:hover,
+.delphi-tab-strip-btn.active {
+  background-color: var(--bg-hover);
+  color: var(--accent-cyan);
+}
+
+.delphi-side-tab-strip.left-tab-strip .delphi-tab-strip-btn:hover,
+.delphi-side-tab-strip.left-tab-strip .delphi-tab-strip-btn.active {
+  border-left: 2px solid var(--accent-cyan);
+}
+
+.delphi-side-tab-strip.right-tab-strip .delphi-tab-strip-btn:hover,
+.delphi-side-tab-strip.right-tab-strip .delphi-tab-strip-btn.active {
+  border-right: 2px solid var(--accent-cyan);
+}
+
+.tab-strip-icon {
+  flex-shrink: 0;
+}
+
+.tab-strip-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.delphi-dock-flyout {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  z-index: 95;
+  background-color: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+}
+
+.delphi-dock-flyout.left-flyout {
+  left: 28px;
+  width: 300px;
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.55);
+  border-right: 1px solid var(--accent-cyan);
+  animation: flyoutSlideLeft 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.delphi-dock-flyout.right-flyout {
+  right: 28px;
+  width: 315px;
+  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.55);
+  border-left: 1px solid var(--accent-cyan);
+  animation: flyoutSlideRight 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.delphi-dock-flyout .lazarus-object-inspector,
+.delphi-dock-flyout .lazarus-project-inspector {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+@keyframes flyoutSlideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes flyoutSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* ==========================================================================

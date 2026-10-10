@@ -13,7 +13,8 @@ import {
   Sliders,
   ChevronDown,
   Layers,
-  Code
+  Code,
+  Pin
 } from 'lucide-react';
 
 interface ObjectInspectorProps {
@@ -26,6 +27,9 @@ interface ObjectInspectorProps {
   onOpenEventHandler: (componentId: string | null, eventName: string, procedureName: string) => void;
   onAddComponent?: (type: LComponentType, x: number, y: number, parentId?: string) => void;
   onDeleteComponents?: (ids: string[]) => void;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+  onCloseFlyout?: () => void;
 }
 
 export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
@@ -37,7 +41,9 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
   onUpdateForm,
   onOpenEventHandler,
   onAddComponent,
-  onDeleteComponents
+  onDeleteComponents,
+  isPinned = true,
+  onTogglePin
 }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'events'>('properties');
   const [filterQuery, setFilterQuery] = useState('');
@@ -72,6 +78,15 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
       <aside className="lazarus-dock-panel lazarus-left-dock">
         <div className="dock-header">
           <span className="dock-title">Inspetor de Objetos</span>
+          {onTogglePin && (
+            <button
+              className={`pin-toggle-btn ${isPinned ? 'pinned' : 'unpinned'}`}
+              onClick={onTogglePin}
+              title={isPinned ? "Desafixar (Ocultar automaticamente - estilo Delphi)" : "Fixar (Manter aberto)"}
+            >
+              <Pin size={12} className={`pin-icon ${isPinned ? 'pinned' : 'unpinned'}`} />
+            </button>
+          )}
         </div>
         <div style={{ padding: 20, color: '#94a3b8', fontSize: 13, textAlign: 'center', lineHeight: 1.5 }}>
           <p style={{ marginBottom: 8, fontWeight: 600, color: '#e2e8f0' }}>Nenhum formulário ativo</p>
@@ -126,13 +141,24 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
           <Sliders size={14} className="icon-blue" />
           <span>Inspetor de Objetos</span>
         </div>
-        <button
-          className={`tree-toggle-btn ${showTree ? 'active' : ''}`}
-          onClick={() => setShowTree(!showTree)}
-          title="Alternar Árvore de Componentes"
-        >
-          <Layers size={13} />
-        </button>
+        <div className="inspector-header-actions">
+          <button
+            className={`tree-toggle-btn ${showTree ? 'active' : ''}`}
+            onClick={() => setShowTree(!showTree)}
+            title="Alternar Árvore de Componentes"
+          >
+            <Layers size={13} />
+          </button>
+          {onTogglePin && (
+            <button
+              className={`pin-toggle-btn ${isPinned ? 'pinned' : 'unpinned'}`}
+              onClick={onTogglePin}
+              title={isPinned ? "Desafixar (Ocultar automaticamente - estilo Delphi)" : "Fixar (Manter aberto)"}
+            >
+              <Pin size={13} className={`pin-icon ${isPinned ? 'pinned' : 'unpinned'}`} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Component Selector Dropdown */}

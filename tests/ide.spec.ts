@@ -200,5 +200,62 @@ test('Redimensionamento: splitter da área de mensagens estica painel com mouse 
   await expect(dock).toHaveCSS('height', '180px');
 });
 
+test('Delphi Dock Pinning: desafixar e fixar janelas laterais com auto-hide e flyout', async ({ page }) => {
+  // Limpa localStorage para garantir estado padrão pinned
+  await page.evaluate(() => {
+    localStorage.removeItem('lazarus_left_dock_pinned');
+    localStorage.removeItem('lazarus_right_dock_pinned');
+  });
+  await page.reload();
+
+  // 1. Inspetor de Objetos (Esquerda) inicia fixado
+  const leftInspector = page.locator('.lazarus-object-inspector');
+  await expect(leftInspector).toBeVisible();
+  const leftPinBtn = leftInspector.locator('.pin-toggle-btn');
+  await expect(leftPinBtn.locator('.pin-icon.pinned')).toBeVisible();
+
+  // 2. Clica no botão de alfinete para desafixar (Auto-Hide)
+  await leftPinBtn.click();
+
+  // Barra vertical retrátil esquerda deve aparecer
+  const leftTabStrip = page.locator('.delphi-side-tab-strip.left-tab-strip');
+  await expect(leftTabStrip).toBeVisible();
+  await expect(leftTabStrip).toContainText('Inspetor de Objetos');
+
+  // 3. Clica na aba vertical retrátil para abrir Flyout flutuante
+  await leftTabStrip.locator('.delphi-tab-strip-btn').click();
+  const leftFlyout = page.locator('.delphi-dock-flyout.left-flyout');
+  await expect(leftFlyout).toBeVisible();
+  await expect(leftFlyout.locator('.lazarus-object-inspector')).toBeVisible();
+
+  // 4. Clica no pin dentro do Flyout para refixar na grade principal
+  await leftFlyout.locator('.pin-toggle-btn').click();
+  await expect(page.locator('.delphi-dock-flyout.left-flyout')).toHaveCount(0);
+  await expect(page.locator('.lazarus-object-inspector')).toBeVisible();
+
+  // 5. Inspetor de Projetos (Direita) inicia fixado
+  const rightDock = page.locator('.lazarus-right-dock-panel');
+  await expect(rightDock).toBeVisible();
+  const rightPinBtn = rightDock.locator('.pin-toggle-btn');
+  await expect(rightPinBtn.locator('.pin-icon.pinned')).toBeVisible();
+
+  // 6. Clica no pin do Inspetor de Projetos para desafixar
+  await rightPinBtn.click();
+  const rightTabStrip = page.locator('.delphi-side-tab-strip.right-tab-strip');
+  await expect(rightTabStrip).toBeVisible();
+  await expect(rightTabStrip).toContainText('Inspetor de Projetos');
+
+  // 7. Clica na aba vertical para abrir o Flyout direito
+  await rightTabStrip.locator('.delphi-tab-strip-btn').click();
+  const rightFlyout = page.locator('.delphi-dock-flyout.right-flyout');
+  await expect(rightFlyout).toBeVisible();
+
+  // 8. Clica no pin dentro do Flyout direito para refixar
+  await rightFlyout.locator('.pin-toggle-btn').click();
+  await expect(page.locator('.delphi-dock-flyout.right-flyout')).toHaveCount(0);
+  await expect(page.locator('.lazarus-right-dock-panel')).toBeVisible();
+});
+
+
 
 

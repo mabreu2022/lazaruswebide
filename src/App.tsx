@@ -45,7 +45,8 @@ import {
   Database,
   Terminal,
   Sparkles,
-  Play
+  Play,
+  Sliders
 } from 'lucide-react';
 import { removeWithDescendants } from './utils/componentTree';
 import './App.css';
@@ -274,6 +275,53 @@ const LazarusIDE: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isHorseRunnerOpen, setIsHorseRunnerOpen] = useState<boolean>(false);
   const [isConsoleCollapsed, setIsConsoleCollapsed] = useState<boolean>(false);
+
+  // Delphi-style Dock Pinning / Auto-Hide states (Persistência no localStorage)
+  const [isLeftDockPinned, setIsLeftDockPinned] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('lazarus_left_dock_pinned');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [isLeftDockFlyoutOpen, setIsLeftDockFlyoutOpen] = useState<boolean>(false);
+
+  const [isRightDockPinned, setIsRightDockPinned] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('lazarus_right_dock_pinned');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [isRightDockFlyoutOpen, setIsRightDockFlyoutOpen] = useState<boolean>(false);
+
+  const handleTogglePinLeftDock = useCallback(() => {
+    setIsLeftDockPinned(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('lazarus_left_dock_pinned', String(next));
+      } catch {}
+      if (!next) {
+        setIsLeftDockFlyoutOpen(false);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleTogglePinRightDock = useCallback(() => {
+    setIsRightDockPinned(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('lazarus_right_dock_pinned', String(next));
+      } catch {}
+      if (!next) {
+        setIsRightDockFlyoutOpen(false);
+      }
+      return next;
+    });
+  }, []);
 
   const [activeEventToEdit, setActiveEventToEdit] = useState<{
     componentId: string;
@@ -1613,21 +1661,66 @@ const LazarusIDE: React.FC = () => {
 
       {/* Main Workspace (Left: Object Inspector | Center: Designer/Code | Right: Project Inspector) */}
       <div className="lazarus-workspace-body">
-        {/* Left Dock: Object Inspector (Original location & original tabs) */}
-        <ObjectInspector
-          form={form}
-          selectedComponentIds={selectedComponentIds}
-          onSelectComponent={handleSelectComponent}
-          onSelectForm={handleSelectForm}
-          onUpdateComponent={handleUpdateComponent}
-          onUpdateForm={handleUpdateForm}
-          onOpenEventHandler={handleOpenEventHandler}
-          onAddComponent={handleAddComponent}
-          onDeleteComponents={handleDeleteComponents}
-        />
+        {/* Left Side: Pinned Dock OR Delphi-style Auto-Hide Tab Strip */}
+        {isLeftDockPinned ? (
+          <ObjectInspector
+            form={form}
+            selectedComponentIds={selectedComponentIds}
+            onSelectComponent={handleSelectComponent}
+            onSelectForm={handleSelectForm}
+            onUpdateComponent={handleUpdateComponent}
+            onUpdateForm={handleUpdateForm}
+            onOpenEventHandler={handleOpenEventHandler}
+            onAddComponent={handleAddComponent}
+            onDeleteComponents={handleDeleteComponents}
+            isPinned={true}
+            onTogglePin={handleTogglePinLeftDock}
+          />
+        ) : (
+          <div className="delphi-side-tab-strip left-tab-strip">
+            <button
+              className={`delphi-tab-strip-btn ${isLeftDockFlyoutOpen ? 'active' : ''}`}
+              onClick={() => setIsLeftDockFlyoutOpen(true)}
+              onMouseEnter={() => setIsLeftDockFlyoutOpen(true)}
+              title="Inspetor de Objetos (Clique ou passe o mouse para expandir - Auto-Hide)"
+            >
+              <Sliders size={13} className="tab-strip-icon" />
+              <span className="tab-strip-label">Inspetor de Objetos</span>
+            </button>
+          </div>
+        )}
+
+        {/* Left Flyout when Unpinned */}
+        {!isLeftDockPinned && isLeftDockFlyoutOpen && (
+          <div
+            className="delphi-dock-flyout left-flyout"
+            onMouseLeave={() => setIsLeftDockFlyoutOpen(false)}
+          >
+            <ObjectInspector
+              form={form}
+              selectedComponentIds={selectedComponentIds}
+              onSelectComponent={handleSelectComponent}
+              onSelectForm={handleSelectForm}
+              onUpdateComponent={handleUpdateComponent}
+              onUpdateForm={handleUpdateForm}
+              onOpenEventHandler={handleOpenEventHandler}
+              onAddComponent={handleAddComponent}
+              onDeleteComponents={handleDeleteComponents}
+              isPinned={false}
+              onTogglePin={handleTogglePinLeftDock}
+              onCloseFlyout={() => setIsLeftDockFlyoutOpen(false)}
+            />
+          </div>
+        )}
 
         {/* Center Dock: Form Designer or Code Editor with Unified Persistent Tabs */}
-        <main className="lazarus-main-center">
+        <main
+          className="lazarus-main-center"
+          onClick={() => {
+            if (isLeftDockFlyoutOpen) setIsLeftDockFlyoutOpen(false);
+            if (isRightDockFlyoutOpen) setIsRightDockFlyoutOpen(false);
+          }}
+        >
           {/* Unified Persistent Tabs Bar (Identical to Photo 1, Never changes between forms/code) */}
           <div className="code-editor-header unified-workspace-header">
             <div className="code-files-tabs">
@@ -1819,9 +1912,55 @@ const LazarusIDE: React.FC = () => {
           )}
         </main>
 
-        {/* Right Dock: Project Inspector (Lado direito como no Lazarus) */}
-        {isProjectInspectorOpen && (
-          <aside className="lazarus-right-dock-panel">
+        {/* Right Dock: Project Inspector (Lado direito como no Lazarus / Delphi) */}
+        {isProjectInspectorOpen && !isProjectInspectorFloating && (
+          isRightDockPinned ? (
+            <aside className="lazarus-right-dock-panel">
+              <ProjectInspector
+                forms={forms}
+                pureUnits={pureUnits}
+                activeFormId={activeFormId}
+                projectName={activeProjectName}
+                projectType={activeProjectType}
+                projectGroup={projectGroup}
+                onSelectProject={handleSelectProject}
+                onNewProject={handleAddProjectToGroup}
+                onRemoveProject={handleRemoveProjectFromGroup}
+                onSelectForm={handleSwitchForm}
+                onOpenCodeFile={handleOpenCodeFile}
+                onNewForm={handleNewForm}
+                onNewDataModule={handleNewDataModule}
+                onNewPureUnit={handleNewPureUnit}
+                onRemoveForm={handleRemoveForm}
+                onRemovePureUnit={handleRemovePureUnit}
+                onClose={() => setIsProjectInspectorOpen(false)}
+                onToggleFloat={() => setIsProjectInspectorFloating(true)}
+                isFloating={false}
+                isPinned={true}
+                onTogglePin={handleTogglePinRightDock}
+              />
+            </aside>
+          ) : (
+            <div className="delphi-side-tab-strip right-tab-strip">
+              <button
+                className={`delphi-tab-strip-btn ${isRightDockFlyoutOpen ? 'active' : ''}`}
+                onClick={() => setIsRightDockFlyoutOpen(true)}
+                onMouseEnter={() => setIsRightDockFlyoutOpen(true)}
+                title="Inspetor de Projetos (Clique ou passe o mouse para expandir - Auto-Hide)"
+              >
+                <FolderOpen size={13} className="tab-strip-icon" />
+                <span className="tab-strip-label">Inspetor de Projetos</span>
+              </button>
+            </div>
+          )
+        )}
+
+        {/* Right Flyout when Unpinned */}
+        {isProjectInspectorOpen && !isProjectInspectorFloating && !isRightDockPinned && isRightDockFlyoutOpen && (
+          <div
+            className="delphi-dock-flyout right-flyout"
+            onMouseLeave={() => setIsRightDockFlyoutOpen(false)}
+          >
             <ProjectInspector
               forms={forms}
               pureUnits={pureUnits}
@@ -1839,11 +1978,17 @@ const LazarusIDE: React.FC = () => {
               onNewPureUnit={handleNewPureUnit}
               onRemoveForm={handleRemoveForm}
               onRemovePureUnit={handleRemovePureUnit}
-              onClose={() => setIsProjectInspectorOpen(false)}
+              onClose={() => {
+                setIsProjectInspectorOpen(false);
+                setIsRightDockFlyoutOpen(false);
+              }}
               onToggleFloat={() => setIsProjectInspectorFloating(true)}
               isFloating={false}
+              isPinned={false}
+              onTogglePin={handleTogglePinRightDock}
+              onCloseFlyout={() => setIsRightDockFlyoutOpen(false)}
             />
-          </aside>
+          </div>
         )}
 
         {/* Floating Project Inspector Window (quando desacoplado) */}

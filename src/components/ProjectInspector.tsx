@@ -21,7 +21,8 @@ import {
   Database,
   Layers,
   Terminal,
-  Sparkles
+  Sparkles,
+  Pin
 } from 'lucide-react';
 
 interface ProjectInspectorProps {
@@ -44,6 +45,9 @@ interface ProjectInspectorProps {
   onClose?: () => void;
   onToggleFloat?: () => void;
   isFloating?: boolean;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+  onCloseFlyout?: () => void;
 }
 
 export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
@@ -65,7 +69,9 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   onRemovePureUnit,
   onClose,
   onToggleFloat,
-  isFloating = false
+  isFloating = false,
+  isPinned = true,
+  onTogglePin
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
   const [isFilesExpanded, setIsFilesExpanded] = useState(true);
@@ -130,6 +136,15 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
           <span>Inspetor de projetos - {projectName} [Default]</span>
         </div>
         <div className="titlebar-actions">
+          {onTogglePin && !isFloating && (
+            <button
+              className={`inspector-title-btn pin-toggle-btn ${isPinned ? 'pinned' : 'unpinned'}`}
+              onClick={onTogglePin}
+              title={isPinned ? "Desafixar (Ocultar automaticamente - estilo Delphi)" : "Fixar (Manter aberto)"}
+            >
+              <Pin size={11} className={`pin-icon ${isPinned ? 'pinned' : 'unpinned'}`} />
+            </button>
+          )}
           {onToggleFloat && (
             <button
               className="inspector-title-btn"
