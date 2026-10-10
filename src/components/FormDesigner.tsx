@@ -5,7 +5,12 @@ import type {
   LForm
 } from '../types/lazarus';
 import { renderComponentIcon } from './componentIcons';
-import { computeFullFormLayout, isContainerComponent } from '../utils/layoutEngine';
+import {
+  computeFullFormLayout,
+  isContainerComponent,
+  canAdoptChild,
+  getContainerPadding
+} from '../utils/layoutEngine';
 import {
   X,
   Minus,
@@ -56,6 +61,61 @@ interface DragState {
   currentY?: number;
 }
 
+function getHierarchyDepth(id: string, components: LComponent[]): number {
+  let depth = 0;
+  let curr = components.find(c => c.id === id)?.parentId;
+  const visited = new Set<string>();
+  while (curr) {
+    if (visited.has(curr)) break;
+    visited.add(curr);
+    depth++;
+    const p = components.find(c => c.id === curr);
+    curr = p?.parentId;
+  }
+  return depth;
+}
+
+function isComponentVisibleInHierarchy(comp: LComponent, components: LComponent[]): boolean {
+  if (comp.visible === false) return false;
+  let currParentId = comp.parentId;
+  const visited = new Set<string>();
+
+  while (currParentId) {
+    if (visited.has(currParentId)) break;
+    visited.add(currParentId);
+
+    const parent = components.find(c => c.id === currParentId);
+    if (!parent) break;
+    if (parent.visible === false) return false;
+
+    // Check if parent is a TabSheet inside a PageControl
+    if (parent.type === 'TTabSheet' && parent.parentId) {
+      const pc = components.find(c => c.id === parent.parentId);
+      if (pc && pc.type === 'TPageControl') {
+        const tabSheets = components.filter(c => c.parentId === pc.id && c.type === 'TTabSheet');
+        const activeIdx = pc.activeTab ?? pc.activePageIndex ?? 0;
+        const activeSheet = tabSheets[activeIdx] || tabSheets[0];
+        if (activeSheet && activeSheet.id !== parent.id) return false;
+      }
+    }
+
+    // Check if parent is a Page inside a Notebook
+    if (parent.type === 'TPage' && parent.parentId) {
+      const nb = components.find(c => c.id === parent.parentId);
+      if (nb && nb.type === 'TNotebook') {
+        const pages = components.filter(c => c.parentId === nb.id && c.type === 'TPage');
+        const activeIdx = nb.pageIndex ?? nb.activePageIndex ?? 0;
+        const activePage = pages[activeIdx] || pages[0];
+        if (activePage && activePage.id !== parent.id) return false;
+      }
+    }
+
+    currParentId = parent.parentId;
+  }
+
+  return true;
+}
+
 export const FormDesigner: React.FC<FormDesignerProps> = ({
   form,
   forms,
@@ -96,32 +156,83 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
     return computeFullFormLayout(form.components, form.width, form.height);
   }, [form.components, form.width, form.height]);
 
-  // Find container component at a canvas point
+  // Find container component at a canvas point (prioritizing deepest valid container)
   const findContainerAtPoint = useCallback((
     canvasX: number,
     canvasY: number,
     excludeId?: string
   ): LComponent | null => {
+    const matchingContainers: LComponent[] = [];
+
     for (let i = form.components.length - 1; i >= 0; i--) {
       const c = form.components[i];
       if (c.id === excludeId) continue;
-      if (isContainerComponent(c.type)) {
-        const parentRect = c.parentId ? layoutMap.get(c.parentId) : null;
-        const rect = layoutMap.get(c.id) || { left: c.left, top: c.top, width: c.width, height: c.height };
-        const absLeft = (parentRect ? parentRect.left : 0) + rect.left;
-        const absTop = (parentRect ? parentRect.top : 0) + rect.top;
+      if (!isContainerComponent(c.type)) continue;
+      if (excludeId && !canAdoptChild(c.id, excludeId, form.components)) continue;
 
-        if (
-          canvasX >= absLeft &&
-          canvasX <= absLeft + rect.width &&
-          canvasY >= absTop &&
-          canvasY <= absTop + rect.height
-        ) {
-          return c;
-        }
+      const rect = layoutMap.get(c.id);
+      if (!rect) continue;
+
+      if (
+        canvasX >= rect.absLeft &&
+        canvasX <= rect.absLeft + rect.width &&
+        canvasY >= rect.absTop &&
+        canvasY <= rect.absTop + rect.height
+      ) {
+        matchingContainers.push(c);
       }
     }
-    return null;
+
+    if (matchingContainers.length === 0) return null;
+
+    // Sort to pick the deepest nested container (descendants first)
+    matchingContainers.sort((a, b) => {
+      let curr = a.parentId;
+      while (curr) {
+        if (curr === b.id) return -1;
+        const p = form.components.find(x => x.id === curr);
+        curr = p?.parentId;
+      }
+      return 1;
+    });
+
+    const chosen = matchingContainers[0];
+
+    // If chosen container is TPageControl, target its active TTabSheet
+    if (chosen.type === 'TPageControl') {
+      const tabSheets = form.components.filter(c => c.parentId === chosen.id && c.type === 'TTabSheet');
+      const activeIdx = chosen.activeTab ?? chosen.activePageIndex ?? 0;
+      const activeSheet = tabSheets[activeIdx] || tabSheets[0];
+      if (activeSheet) return activeSheet;
+    }
+
+    // If chosen container is TNotebook, target its active TPage
+    if (chosen.type === 'TNotebook') {
+      const pages = form.components.filter(c => c.parentId === chosen.id && c.type === 'TPage');
+      const activeIdx = chosen.pageIndex ?? chosen.activePageIndex ?? 0;
+      const activePage = pages[activeIdx] || pages[0];
+      if (activePage) return activePage;
+    }
+
+    // If chosen container is TPairSplitter, target the side containing the mouse point
+    if (chosen.type === 'TPairSplitter') {
+      const sides = form.components.filter(c => c.parentId === chosen.id && c.type === 'TPairSplitterSide');
+      for (const side of sides) {
+        const sRect = layoutMap.get(side.id);
+        if (
+          sRect &&
+          canvasX >= sRect.absLeft &&
+          canvasX <= sRect.absLeft + sRect.width &&
+          canvasY >= sRect.absTop &&
+          canvasY <= sRect.absTop + sRect.height
+        ) {
+          return side;
+        }
+      }
+      if (sides[0]) return sides[0];
+    }
+
+    return chosen;
   }, [form.components, layoutMap]);
 
   // Handle Drag Over from HTML5 Drag and Drop
@@ -145,12 +256,17 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
 
     const container = findContainerAtPoint(x, y);
     if (container) {
-      const parentRect = container.parentId ? layoutMap.get(container.parentId) : null;
-      const contRect = layoutMap.get(container.id) || container;
-      const contAbsLeft = (parentRect ? parentRect.left : 0) + contRect.left;
-      const contAbsTop = (parentRect ? parentRect.top : 0) + contRect.top;
-      const relX = Math.max(0, snap(x - contAbsLeft));
-      const relY = Math.max(0, snap(y - contAbsTop));
+      const contRect = layoutMap.get(container.id) || {
+        absLeft: container.left,
+        absTop: container.top,
+        width: container.width,
+        height: container.height
+      };
+      const pad = getContainerPadding(container);
+      const innerAbsLeft = contRect.absLeft + pad.left;
+      const innerAbsTop = contRect.absTop + pad.top;
+      const relX = Math.max(0, snap(x - innerAbsLeft));
+      const relY = Math.max(0, snap(y - innerAbsTop));
       onAddComponent(compType, relX, relY, container.id);
     } else {
       onAddComponent(compType, x, y);
@@ -174,12 +290,17 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
 
       const container = findContainerAtPoint(x, y);
       if (container) {
-        const parentRect = container.parentId ? layoutMap.get(container.parentId) : null;
-        const contRect = layoutMap.get(container.id) || container;
-        const contAbsLeft = (parentRect ? parentRect.left : 0) + contRect.left;
-        const contAbsTop = (parentRect ? parentRect.top : 0) + contRect.top;
-        const relX = Math.max(0, snap(x - contAbsLeft));
-        const relY = Math.max(0, snap(y - contAbsTop));
+        const contRect = layoutMap.get(container.id) || {
+          absLeft: container.left,
+          absTop: container.top,
+          width: container.width,
+          height: container.height
+        };
+        const pad = getContainerPadding(container);
+        const innerAbsLeft = contRect.absLeft + pad.left;
+        const innerAbsTop = contRect.absTop + pad.top;
+        const relX = Math.max(0, snap(x - innerAbsLeft));
+        const relY = Math.max(0, snap(y - innerAbsTop));
         onAddComponent(selectedPaletteComponent, relX, relY, container.id);
       } else {
         onAddComponent(selectedPaletteComponent, x, y);
@@ -317,6 +438,11 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
           // If aligned, position is controlled by layout engine, do not move unless alNone
           if (comp?.align && comp.align !== 'alNone') return;
 
+          // If this component's parent container is also in dragState.initialComponents, skip it
+          // to avoid double delta translation
+          const isParentAlsoBeingMoved = dragState.initialComponents.some(other => other.id === comp?.parentId);
+          if (isParentAlsoBeingMoved) return;
+
           const newLeft = Math.max(0, snap(init.left + deltaX));
           const newTop = Math.max(0, snap(init.top + deltaY));
           onUpdateComponent(init.id, { left: newLeft, top: newTop });
@@ -396,33 +522,38 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
         const comp = form.components.find(c => c.id === init.id);
 
         if (comp && (!comp.align || comp.align === 'alNone')) {
-          const parentRect = comp.parentId ? layoutMap.get(comp.parentId) : null;
-          const currentAbsX = (parentRect ? parentRect.left : 0) + comp.left;
-          const currentAbsY = (parentRect ? parentRect.top : 0) + comp.top;
-          const centerX = currentAbsX + comp.width / 2;
-          const centerY = currentAbsY + comp.height / 2;
+          const currentRect = layoutMap.get(comp.id) || {
+            absLeft: comp.left,
+            absTop: comp.top,
+            width: comp.width,
+            height: comp.height
+          };
+          const centerX = currentRect.absLeft + comp.width / 2;
+          const centerY = currentRect.absTop + comp.height / 2;
 
           const targetContainer = findContainerAtPoint(centerX, centerY, comp.id);
 
           if (targetContainer && targetContainer.id !== comp.parentId) {
-            const contParentRect = targetContainer.parentId ? layoutMap.get(targetContainer.parentId) : null;
-            const contRect = layoutMap.get(targetContainer.id) || targetContainer;
-            const contAbsLeft = (contParentRect ? contParentRect.left : 0) + contRect.left;
-            const contAbsTop = (contParentRect ? contParentRect.top : 0) + contRect.top;
+            if (canAdoptChild(targetContainer.id, comp.id, form.components)) {
+              const contRect = layoutMap.get(targetContainer.id) || targetContainer;
+              const pad = getContainerPadding(targetContainer);
+              const contAbsLeft = ('absLeft' in contRect ? contRect.absLeft : contRect.left) + pad.left;
+              const contAbsTop = ('absTop' in contRect ? contRect.absTop : contRect.top) + pad.top;
 
-            const newRelLeft = Math.max(0, snap(currentAbsX - contAbsLeft));
-            const newRelTop = Math.max(0, snap(currentAbsY - contAbsTop));
+              const newRelLeft = Math.max(0, snap(currentRect.absLeft - contAbsLeft));
+              const newRelTop = Math.max(0, snap(currentRect.absTop - contAbsTop));
 
-            onUpdateComponent(comp.id, {
-              parentId: targetContainer.id,
-              left: newRelLeft,
-              top: newRelTop
-            });
+              onUpdateComponent(comp.id, {
+                parentId: targetContainer.id,
+                left: newRelLeft,
+                top: newRelTop
+              });
+            }
           } else if (!targetContainer && comp.parentId) {
             onUpdateComponent(comp.id, {
               parentId: undefined,
-              left: Math.max(0, snap(currentAbsX)),
-              top: Math.max(0, snap(currentAbsY))
+              left: Math.max(0, snap(currentRect.absLeft)),
+              top: Math.max(0, snap(currentRect.absTop))
             });
           }
         }
@@ -590,17 +721,21 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
         >
           {/* Render All Form Components */}
           {form.components.map(comp => {
+            if (!isComponentVisibleInHierarchy(comp, form.components)) return null;
+
             const isSelected = selectedComponentIds.includes(comp.id);
-            const parentRect = comp.parentId ? layoutMap.get(comp.parentId) : null;
             const rect = layoutMap.get(comp.id) || {
               left: comp.left,
               top: comp.top,
               width: comp.width,
-              height: comp.height
+              height: comp.height,
+              absLeft: comp.left,
+              absTop: comp.top
             };
-            const displayLeft = (parentRect ? parentRect.left : 0) + rect.left;
-            const displayTop = (parentRect ? parentRect.top : 0) + rect.top;
+            const displayLeft = rect.absLeft;
+            const displayTop = rect.absTop;
             const isContainer = isContainerComponent(comp.type);
+            const depth = getHierarchyDepth(comp.id, form.components);
 
             return (
               <div
@@ -612,7 +747,7 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
                   top: `${displayTop}px`,
                   width: `${rect.width}px`,
                   height: `${rect.height}px`,
-                  zIndex: isSelected ? 50 : (isContainer ? 2 : 10)
+                  zIndex: isSelected ? 100 : (10 + depth * 2)
                 }}
                 onMouseDown={(e) => handleComponentMouseDown(e, comp)}
                 onDoubleClick={(e) => {
@@ -622,7 +757,13 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
                 onContextMenu={(e) => handleContextMenu(e, comp.id)}
               >
                 {/* Component Render */}
-                <ComponentRenderer comp={comp} />
+                <ComponentRenderer
+                  comp={comp}
+                  form={form}
+                  onUpdateComponent={onUpdateComponent}
+                  onAddComponent={onAddComponent}
+                  onSelectComponent={onSelectComponent}
+                />
 
                 {/* Selection Handles if selected */}
                 {isSelected && (
@@ -772,7 +913,13 @@ export const FormDesigner: React.FC<FormDesignerProps> = ({
 };
 
 // Component Visual Renderer for each Lazarus Control Type
-const ComponentRenderer: React.FC<{ comp: LComponent }> = ({ comp }) => {
+const ComponentRenderer: React.FC<{
+  comp: LComponent;
+  form?: LForm;
+  onUpdateComponent?: (id: string, updates: Partial<LComponent>) => void;
+  onAddComponent?: (type: LComponentType, x: number, y: number, parentId?: string) => void;
+  onSelectComponent?: (id: string, isMulti?: boolean) => void;
+}> = ({ comp, form, onUpdateComponent, onAddComponent, onSelectComponent }) => {
   const fontStyle: React.CSSProperties = {
     color: comp.fontColor || 'inherit',
     fontSize: comp.fontSize ? `${comp.fontSize}px` : undefined,
@@ -868,21 +1015,38 @@ const ComponentRenderer: React.FC<{ comp: LComponent }> = ({ comp }) => {
     case 'TGroupBox':
       return (
         <div className="lcl-widget lcl-groupbox" style={fontStyle}>
-          <fieldset>
-            <legend>{comp.caption || comp.name}</legend>
+          <fieldset className="groupbox-fieldset">
+            <legend className="groupbox-legend">{comp.caption || comp.name}</legend>
+            <div className="container-inner-area" />
           </fieldset>
         </div>
       );
 
-    case 'TRadioGroup':
+    case 'TRadioGroup': {
+      const items = comp.items && comp.items.length > 0 ? comp.items : ['Opção 1', 'Opção 2', 'Opção 3'];
+      const activeIdx = comp.itemIndex ?? 0;
       return (
         <div className="lcl-widget lcl-radiogroup" style={fontStyle}>
-          <fieldset>
-            <legend>{comp.caption || comp.name}</legend>
-            <div className="radio-options">
-              {(comp.items && comp.items.length > 0 ? comp.items : ['Opção A', 'Opção B']).map((op, i) => (
-                <label key={i} className="radio-item">
-                  <input type="radio" name={comp.name} defaultChecked={i === 0} readOnly />
+          <fieldset className="radiogroup-fieldset">
+            <legend className="radiogroup-legend">{comp.caption || comp.name}</legend>
+            <div className="radiogroup-items-list">
+              {items.map((op, i) => (
+                <label
+                  key={i}
+                  className={`radiogroup-item-label ${i === activeIdx ? 'active-radio' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onUpdateComponent) {
+                      onUpdateComponent(comp.id, { itemIndex: i });
+                    }
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name={`rg_${comp.id}`}
+                    checked={i === activeIdx}
+                    onChange={() => {}}
+                  />
                   <span>{op}</span>
                 </label>
               ))}
@@ -890,14 +1054,248 @@ const ComponentRenderer: React.FC<{ comp: LComponent }> = ({ comp }) => {
           </fieldset>
         </div>
       );
+    }
 
-    case 'TPanel':
+    case 'TPanel': {
+      const outer = comp.bevelOuter || 'bvRaised';
+      const inner = comp.bevelInner || 'bvNone';
+      const bw = comp.bevelWidth ?? 1;
+      const borderSingle = comp.borderStyle === 'bsSingle';
+
       return (
         <div
-          className="lcl-widget lcl-panel"
-          style={{ ...fontStyle, backgroundColor: comp.color || '#ece9d8' }}
+          className={`lcl-widget lcl-panel bevel-outer-${outer.replace('bv', '').toLowerCase()} ${borderSingle ? 'border-single' : ''}`}
+          style={{
+            ...fontStyle,
+            backgroundColor: comp.color || '#ece9d8',
+            borderWidth: outer !== 'bvNone' ? `${bw}px` : undefined
+          }}
         >
-          <span className="panel-caption">{comp.caption || comp.name}</span>
+          <div
+            className={`panel-inner-container bevel-inner-${inner.replace('bv', '').toLowerCase()}`}
+            style={{ borderWidth: inner !== 'bvNone' ? `${bw}px` : undefined }}
+          >
+            {comp.caption && <span className="panel-caption">{comp.caption}</span>}
+          </div>
+        </div>
+      );
+    }
+
+    case 'TFrame':
+      return (
+        <div className="lcl-widget lcl-frame" style={fontStyle}>
+          <div className="frame-header-tag">
+            <span className="frame-icon">🗔</span>
+            <span>TFrame: {comp.name}</span>
+          </div>
+        </div>
+      );
+
+    case 'TPageControl': {
+      const tabSheets = form
+        ? form.components.filter(c => c.parentId === comp.id && c.type === 'TTabSheet')
+        : [];
+      const tabNames = tabSheets.length > 0
+        ? tabSheets.map(s => s.caption || s.name)
+        : (comp.tabs && comp.tabs.length > 0 ? comp.tabs : ['Página 1', 'Página 2']);
+      const activeIdx = Math.min(tabNames.length - 1, Math.max(0, comp.activeTab ?? comp.activePageIndex ?? 0));
+
+      return (
+        <div className="lcl-widget lcl-pagecontrol">
+          <div className="page-tabs-header">
+            {tabNames.map((tb, idx) => (
+              <div
+                key={idx}
+                className={`page-tab ${idx === activeIdx ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onUpdateComponent) {
+                    onUpdateComponent(comp.id, { activeTab: idx, activePageIndex: idx });
+                  }
+                  if (tabSheets[idx] && onSelectComponent) {
+                    onSelectComponent(tabSheets[idx].id);
+                  }
+                }}
+              >
+                {tb}
+              </div>
+            ))}
+            {onAddComponent && (
+              <button
+                className="add-tab-btn"
+                title="Adicionar Nova Aba (TTabSheet)"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const newIdx = tabNames.length + 1;
+                  onAddComponent('TTabSheet', 4, 28, comp.id);
+                  onUpdateComponent?.(comp.id, {
+                    tabs: [...tabNames, `Página ${newIdx}`],
+                    activeTab: newIdx - 1,
+                    activePageIndex: newIdx - 1
+                  });
+                }}
+              >
+                +
+              </button>
+            )}
+          </div>
+          <div className="page-tab-content-area" />
+        </div>
+      );
+    }
+
+    case 'TTabSheet':
+      return (
+        <div className="lcl-widget lcl-tabsheet" style={fontStyle}>
+          <div className="tabsheet-designer-indicator">
+            📄 {comp.caption || comp.name}
+          </div>
+        </div>
+      );
+
+    case 'TNotebook': {
+      const pages = form
+        ? form.components.filter(c => c.parentId === comp.id && c.type === 'TPage')
+        : [];
+      const totalPages = Math.max(1, pages.length > 0 ? pages.length : (comp.tabs?.length || 2));
+      const activeIdx = Math.min(totalPages - 1, Math.max(0, comp.pageIndex ?? comp.activePageIndex ?? 0));
+
+      return (
+        <div className="lcl-widget lcl-notebook" style={fontStyle}>
+          <div className="notebook-designer-bar">
+            <span className="notebook-title">📖 TNotebook: {comp.name}</span>
+            <div className="notebook-nav">
+              <button
+                className="nb-nav-btn"
+                disabled={activeIdx === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateComponent?.(comp.id, { pageIndex: Math.max(0, activeIdx - 1) });
+                }}
+              >
+                ◄
+              </button>
+              <span className="nb-page-text">{activeIdx + 1} / {totalPages}</span>
+              <button
+                className="nb-nav-btn"
+                disabled={activeIdx >= totalPages - 1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateComponent?.(comp.id, { pageIndex: Math.min(totalPages - 1, activeIdx + 1) });
+                }}
+              >
+                ►
+              </button>
+              {onAddComponent && (
+                <button
+                  className="add-page-btn"
+                  title="Nova Página (TPage)"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddComponent('TPage', 4, 4, comp.id);
+                    onUpdateComponent?.(comp.id, { pageIndex: totalPages });
+                  }}
+                >
+                  + Página
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    case 'TPage':
+      return (
+        <div className="lcl-widget lcl-page" style={fontStyle}>
+          <div className="page-designer-indicator">
+            📑 {comp.caption || comp.name}
+          </div>
+        </div>
+      );
+
+    case 'TScrollBox':
+      return (
+        <div className="lcl-widget lcl-scrollbox" style={fontStyle}>
+          <div className="scrollbox-header-badge">
+            <span>📜 TScrollBox (AutoScroll)</span>
+          </div>
+        </div>
+      );
+
+    case 'TFlowPanel':
+      return (
+        <div className="lcl-widget lcl-flowpanel" style={fontStyle}>
+          <div className="flowpanel-header-badge">
+            <span>🌊 TFlowPanel [{comp.flowLayout || 'tlLeftToRight'}]</span>
+          </div>
+        </div>
+      );
+
+    case 'TGridPanel': {
+      const cols = comp.gridColumns ?? 2;
+      const rows = comp.gridRows ?? 2;
+      return (
+        <div className="lcl-widget lcl-gridpanel" style={fontStyle}>
+          <div className="gridpanel-header-badge">
+            <span>⊞ TGridPanel [{cols} col x {rows} lin]</span>
+          </div>
+          <div
+            className="gridpanel-cells-overlay"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${cols}, 1fr)`,
+              gridTemplateRows: `repeat(${rows}, 1fr)`
+            }}
+          >
+            {Array.from({ length: cols * rows }).map((_, i) => (
+              <div key={i} className="gridpanel-cell-guideline" />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    case 'TPairSplitter': {
+      const splitPos = Math.max(20, Math.min(comp.width - 20, comp.splitterPosition ?? Math.round(comp.width / 2)));
+      return (
+        <div className="lcl-widget lcl-pairsplitter" style={fontStyle}>
+          <div
+            className="pairsplitter-bar"
+            style={{ left: `${splitPos - 3}px` }}
+            title="Arrastar divisor (Splitter)"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              const startX = e.clientX;
+              const startPos = splitPos;
+
+              const onMove = (me: MouseEvent) => {
+                const delta = me.clientX - startX;
+                const newPos = Math.max(20, Math.min(comp.width - 20, Math.round(startPos + delta)));
+                onUpdateComponent?.(comp.id, { splitterPosition: newPos });
+              };
+
+              const onUp = () => {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+              };
+
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+          >
+            <div className="splitter-grip-dots" />
+          </div>
+        </div>
+      );
+    }
+
+    case 'TPairSplitterSide':
+      return (
+        <div className="lcl-widget lcl-pairsplitterside" style={fontStyle}>
+          <div className="splitterside-header-badge">
+            <span>◧ {comp.caption || comp.name}</span>
+          </div>
         </div>
       );
 
@@ -943,13 +1341,14 @@ const ComponentRenderer: React.FC<{ comp: LComponent }> = ({ comp }) => {
     case 'TBevel':
       return <div className="lcl-widget lcl-bevel" />;
 
-    case 'TProgressBar':
+    case 'TProgressBar': {
       const pct = Math.min(100, Math.max(0, comp.progress ?? 45));
       return (
         <div className="lcl-widget lcl-progressbar">
           <div className="progress-fill" style={{ width: `${pct}%`, backgroundColor: comp.color || '#1677ff' }} />
         </div>
       );
+    }
 
     case 'TTrackBar':
       return (
@@ -969,23 +1368,6 @@ const ComponentRenderer: React.FC<{ comp: LComponent }> = ({ comp }) => {
         <div className="lcl-widget lcl-statusbar">
           <div className="status-panel">{comp.caption || 'Pronto'}</div>
           <div className="status-panel small">100%</div>
-        </div>
-      );
-
-    case 'TPageControl':
-      const tabs = comp.tabs && comp.tabs.length > 0 ? comp.tabs : ['Página 1', 'Página 2'];
-      return (
-        <div className="lcl-widget lcl-pagecontrol">
-          <div className="page-tabs-header">
-            {tabs.map((tb, idx) => (
-              <div key={idx} className={`page-tab ${idx === (comp.activeTab ?? 0) ? 'active' : ''}`}>
-                {tb}
-              </div>
-            ))}
-          </div>
-          <div className="page-tab-content">
-            <span className="tab-hint">Conteúdo da {tabs[comp.activeTab ?? 0]}</span>
-          </div>
         </div>
       );
 

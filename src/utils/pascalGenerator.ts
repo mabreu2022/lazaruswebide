@@ -7,13 +7,15 @@ import { isContainerComponent } from './layoutEngine';
 export function generateUnitPas(form: LForm): string {
   const unitName = form.unitName || 'Unit1';
 
-  // Check if database / Zeos components exist
+  // Check if database / Zeos / Container components exist
   const hasZeos = form.components.some(c => c.type.startsWith('TZ'));
   const hasDB = form.components.some(c => c.type.startsWith('TDB') || c.type === 'TDataSource');
+  const hasPairSplitter = form.components.some(c => c.type.startsWith('TPairSplitter'));
 
   const extraUses = [];
   if (hasDB) extraUses.push('DB');
   if (hasZeos) extraUses.push('ZConnection', 'ZDataset', 'ZAbstractRODataset');
+  if (hasPairSplitter) extraUses.push('PairSplitter');
 
   // Collect event procedures
   const eventSignatures: string[] = [];
@@ -123,6 +125,71 @@ function generateSingleComponentLFM(comp: LComponent, form: LForm, indent: strin
     lines.push(`${indent}  Align = ${comp.align}`);
   }
 
+  // Anchors
+  if (comp.anchors && comp.anchors.length > 0) {
+    lines.push(`${indent}  Anchors = [${comp.anchors.join(', ')}]`);
+  }
+
+  // Container Properties (TPanel, TGroupBox, TRadioGroup, TScrollBox, etc.)
+  if (comp.bevelInner && comp.bevelInner !== 'bvNone') {
+    lines.push(`${indent}  BevelInner = ${comp.bevelInner}`);
+  }
+  if (comp.bevelOuter && comp.bevelOuter !== 'bvNone') {
+    lines.push(`${indent}  BevelOuter = ${comp.bevelOuter}`);
+  }
+  if (comp.bevelWidth !== undefined && comp.bevelWidth !== 1) {
+    lines.push(`${indent}  BevelWidth = ${comp.bevelWidth}`);
+  }
+  if (comp.borderStyle && comp.borderStyle !== 'bsNone') {
+    lines.push(`${indent}  BorderStyle = ${comp.borderStyle}`);
+  }
+  if (comp.autoScroll !== undefined) {
+    lines.push(`${indent}  AutoScroll = ${comp.autoScroll ? 'True' : 'False'}`);
+  }
+  if (comp.flowLayout) {
+    lines.push(`${indent}  FlowLayout = ${comp.flowLayout}`);
+  }
+  if (comp.gridColumns !== undefined) {
+    lines.push(`${indent}  GridColumns = ${comp.gridColumns}`);
+  }
+  if (comp.gridRows !== undefined) {
+    lines.push(`${indent}  GridRows = ${comp.gridRows}`);
+  }
+  if (comp.splitterPosition !== undefined) {
+    lines.push(`${indent}  SplitterPosition = ${comp.splitterPosition}`);
+  }
+  if (comp.itemIndex !== undefined) {
+    lines.push(`${indent}  ItemIndex = ${comp.itemIndex}`);
+  }
+  if (comp.activePageIndex !== undefined) {
+    lines.push(`${indent}  ActivePageIndex = ${comp.activePageIndex}`);
+  }
+  if (comp.pageIndex !== undefined) {
+    lines.push(`${indent}  PageIndex = ${comp.pageIndex}`);
+  }
+
+  // Items string collection (TRadioGroup, TListBox, TComboBox)
+  if (comp.items && comp.items.length > 0) {
+    lines.push(`${indent}  Items.Strings = (`);
+    comp.items.forEach(it => {
+      lines.push(`${indent}    '${it.replace(/'/g, "''")}'`);
+    });
+    lines.push(`${indent}  )`);
+  }
+
+  // ChildSizing
+  if (comp.childSizing) {
+    if (comp.childSizing.controlsPerLine) {
+      lines.push(`${indent}  ChildSizing.ControlsPerLine = ${comp.childSizing.controlsPerLine}`);
+    }
+    if (comp.childSizing.horizontalSpacing) {
+      lines.push(`${indent}  ChildSizing.HorizontalSpacing = ${comp.childSizing.horizontalSpacing}`);
+    }
+    if (comp.childSizing.verticalSpacing) {
+      lines.push(`${indent}  ChildSizing.VerticalSpacing = ${comp.childSizing.verticalSpacing}`);
+    }
+  }
+
   // Zeos TZConnection properties
   if (comp.type === 'TZConnection') {
     lines.push(`${indent}  Protocol = '${comp.protocol || 'firebird-5.0'}'`);
@@ -196,9 +263,9 @@ export function generateLFM(form: LForm): string {
     .join('\n');
 
   return `object ${form.name}: T${form.name}
-  Left = ${Math.round(form.left)}
+  Left = ${Math.round(form.left ?? 350)}
   Height = ${Math.round(form.height)}
-  Top = ${Math.round(form.top)}
+  Top = ${Math.round(form.top ?? 200)}
   Width = ${Math.round(form.width)}
   Caption = '${form.caption.replace(/'/g, "''")}'
   ClientHeight = ${Math.round(form.height)}

@@ -2989,3 +2989,434 @@
   border-radius: 4px;
 }
 
+/* ========================================================
+   LAZARUS CONTAINER COMPONENTS STYLES
+   ======================================================== */
+
+/* TPanel Bevel Styles */
+.lcl-panel, .run-panel {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.bevel-outer-raised {
+  border-style: solid;
+  border-color: #ffffff #7f7f7f #7f7f7f #ffffff;
+}
+
+.bevel-outer-lowered {
+  border-style: solid;
+  border-color: #7f7f7f #ffffff #ffffff #7f7f7f;
+}
+
+.bevel-outer-space {
+  border: 1px solid transparent;
+}
+
+.bevel-outer-none {
+  border: none;
+}
+
+.panel-inner-container {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bevel-inner-raised {
+  border-style: solid;
+  border-color: #ffffff #7f7f7f #7f7f7f #ffffff;
+}
+
+.bevel-inner-lowered {
+  border-style: solid;
+  border-color: #7f7f7f #ffffff #ffffff #7f7f7f;
+}
+
+.bevel-inner-space {
+  border: 1px solid transparent;
+}
+
+.border-single {
+  outline: 1px solid #000000;
+  outline-offset: -1px;
+}
+
+.panel-caption {
+  font-weight: 500;
+  font-size: 12px;
+  pointer-events: none;
+  user-select: none;
+  text-align: center;
+}
+
+/* TGroupBox & TRadioGroup */
+.groupbox-fieldset, .radiogroup-fieldset {
+  border: 1px solid #94a3b8;
+  border-radius: 3px;
+  margin: 0;
+  padding: 4px 6px;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.groupbox-legend, .radiogroup-legend {
+  padding: 0 4px;
+  font-weight: 600;
+  font-size: 11px;
+  margin-left: 6px;
+  user-select: none;
+  color: inherit;
+}
+
+.radiogroup-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+.radiogroup-item-label, .run-radiogroup-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.radiogroup-item-label.active-radio, .run-radiogroup-item.active-radio {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+/* TFrame */
+.lcl-frame {
+  border: 1px dashed #64748b;
+  background-color: rgba(100, 116, 139, 0.05);
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.frame-header-tag {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  color: #64748b;
+  font-family: monospace;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+/* TPageControl */
+.lcl-pagecontrol, .run-pagecontrol {
+  border: 1px solid #94a3b8;
+  background-color: #ece9d8;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-tabs-header {
+  display: flex;
+  align-items: flex-end;
+  background: #cbd5e1;
+  border-bottom: 1px solid #94a3b8;
+  padding-top: 2px;
+  padding-left: 2px;
+  gap: 2px;
+  height: 26px;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+.page-tab {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid #94a3b8;
+  border-bottom: none;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  background: #e2e8f0;
+  cursor: pointer;
+  user-select: none;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.page-tab.active {
+  background: #ece9d8;
+  border-bottom: 1px solid #ece9d8;
+  margin-bottom: -1px;
+  height: 23px;
+  font-weight: 600;
+  color: #0f172a;
+  z-index: 2;
+}
+
+.add-tab-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-left: 4px;
+  margin-bottom: 2px;
+}
+
+.page-tab-content-area {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* TTabSheet & TPage */
+.lcl-tabsheet, .lcl-page {
+  border: 1px dashed rgba(100, 116, 139, 0.35);
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.tabsheet-designer-indicator, .page-designer-indicator {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 10px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* TNotebook */
+.lcl-notebook {
+  border: 1px solid #94a3b8;
+  background-color: #f8fafc;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.notebook-designer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px;
+  background: #e2e8f0;
+  border-bottom: 1px solid #cbd5e1;
+  font-size: 11px;
+  height: 24px;
+}
+
+.notebook-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nb-nav-btn {
+  padding: 0 4px;
+  height: 18px;
+  font-size: 10px;
+  cursor: pointer;
+  border: 1px solid #94a3b8;
+  background: #fff;
+  border-radius: 2px;
+}
+
+.nb-page-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.add-page-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 2px;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+/* TScrollBox */
+.lcl-scrollbox {
+  border: 1px solid #94a3b8;
+  background-color: #ffffff;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: auto;
+  position: relative;
+}
+
+.scrollbox-header-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 10px;
+  color: #64748b;
+  pointer-events: none;
+  background: rgba(255,255,255,0.8);
+  padding: 1px 4px;
+  border-radius: 2px;
+  z-index: 10;
+}
+
+/* TFlowPanel */
+.lcl-flowpanel {
+  border: 1px dashed #0284c7;
+  background-color: rgba(2, 132, 199, 0.03);
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.flowpanel-header-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 10px;
+  color: #0284c7;
+  pointer-events: none;
+  font-weight: 500;
+  z-index: 10;
+}
+
+/* TGridPanel */
+.lcl-gridpanel {
+  border: 1px solid #6366f1;
+  background-color: rgba(99, 102, 241, 0.03);
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.gridpanel-header-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 10px;
+  color: #6366f1;
+  pointer-events: none;
+  font-weight: 500;
+  z-index: 10;
+}
+
+.gridpanel-cells-overlay {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gridpanel-cell-guideline {
+  border: 1px dashed rgba(99, 102, 241, 0.25);
+}
+
+/* TPairSplitter */
+.lcl-pairsplitter {
+  border: 1px solid #94a3b8;
+  background-color: #f8fafc;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.pairsplitter-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: #cbd5e1;
+  border-left: 1px solid #94a3b8;
+  border-right: 1px solid #94a3b8;
+  cursor: col-resize;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pairsplitter-bar:hover {
+  background: #94a3b8;
+}
+
+.splitter-grip-dots {
+  width: 2px;
+  height: 16px;
+  background: #64748b;
+  border-radius: 1px;
+}
+
+.lcl-pairsplitterside {
+  border: 1px dashed rgba(100, 116, 139, 0.3);
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.splitterside-header-badge {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* Object Inspector Tree View Hierarchical styling */
+.tree-node.comp-node.is-child-node {
+  border-left: 1px solid #334155;
+}
+
+.tree-node.comp-node:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.tree-child-count {
+  font-size: 10px;
+  color: #38bdf8;
+  margin-left: 4px;
+  font-weight: bold;
+}
+
+

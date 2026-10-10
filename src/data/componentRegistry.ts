@@ -122,6 +122,16 @@ export const COMPONENT_DEFINITIONS: Record<LComponentType, LComponentDefinition>
     iconName: 'PanelTop',
     description: 'Painel visual de contenção e alinhamento'
   },
+  TFrame: {
+    type: 'TFrame',
+    category: 'Standard',
+    defaultName: 'Frame',
+    defaultCaption: '',
+    defaultWidth: 220,
+    defaultHeight: 140,
+    iconName: 'LayoutDashboard',
+    description: 'Template / Sub-formulário reaproveitável'
+  },
 
   // Additional
   TBitBtn: {
@@ -174,6 +184,56 @@ export const COMPONENT_DEFINITIONS: Record<LComponentType, LComponentDefinition>
     iconName: 'Minus',
     description: 'Linha chanfrada ou borda separadora'
   },
+  TScrollBox: {
+    type: 'TScrollBox',
+    category: 'Additional',
+    defaultName: 'ScrollBox',
+    defaultCaption: '',
+    defaultWidth: 200,
+    defaultHeight: 140,
+    iconName: 'ScrollText',
+    description: 'Container com rolagem automática (AutoScroll)'
+  },
+  TFlowPanel: {
+    type: 'TFlowPanel',
+    category: 'Additional',
+    defaultName: 'FlowPanel',
+    defaultCaption: '',
+    defaultWidth: 220,
+    defaultHeight: 120,
+    iconName: 'WrapText',
+    description: 'Painel com layout fluido e quebra automática'
+  },
+  TGridPanel: {
+    type: 'TGridPanel',
+    category: 'Additional',
+    defaultName: 'GridPanel',
+    defaultCaption: '',
+    defaultWidth: 240,
+    defaultHeight: 140,
+    iconName: 'LayoutGrid',
+    description: 'Painel de grade estruturado por linhas e colunas'
+  },
+  TPairSplitter: {
+    type: 'TPairSplitter',
+    category: 'Additional',
+    defaultName: 'PairSplitter',
+    defaultCaption: '',
+    defaultWidth: 260,
+    defaultHeight: 160,
+    iconName: 'Columns2',
+    description: 'Container com divisor duplo redimensionável'
+  },
+  TPairSplitterSide: {
+    type: 'TPairSplitterSide',
+    category: 'Additional',
+    defaultName: 'PairSplitterSide',
+    defaultCaption: '',
+    defaultWidth: 120,
+    defaultHeight: 150,
+    iconName: 'PanelLeftClose',
+    description: 'Lado de contenção do TPairSplitter'
+  },
 
   // Common Controls
   TProgressBar: {
@@ -211,10 +271,40 @@ export const COMPONENT_DEFINITIONS: Record<LComponentType, LComponentDefinition>
     category: 'Common Controls',
     defaultName: 'PageControl',
     defaultCaption: '',
+    defaultWidth: 260,
+    defaultHeight: 160,
+    iconName: 'FolderKanban',
+    description: 'Painel com abas navegáveis (Tabs/TabSheets)'
+  },
+  TTabSheet: {
+    type: 'TTabSheet',
+    category: 'Common Controls',
+    defaultName: 'TabSheet',
+    defaultCaption: 'Aba',
+    defaultWidth: 250,
+    defaultHeight: 125,
+    iconName: 'Layers',
+    description: 'Página/Aba individual de um TPageControl'
+  },
+  TNotebook: {
+    type: 'TNotebook',
+    category: 'Common Controls',
+    defaultName: 'Notebook',
+    defaultCaption: '',
     defaultWidth: 240,
     defaultHeight: 140,
-    iconName: 'FolderKanban',
-    description: 'Painel com abas navegáveis (Notebook/Tabs)'
+    iconName: 'BookOpen',
+    description: 'Container multi-páginas sem abas visíveis'
+  },
+  TPage: {
+    type: 'TPage',
+    category: 'Common Controls',
+    defaultName: 'Page',
+    defaultCaption: 'Página',
+    defaultWidth: 236,
+    defaultHeight: 136,
+    iconName: 'FileCode',
+    description: 'Página individual de um TNotebook'
   },
 
   // Dialogs
@@ -333,6 +423,15 @@ export const STANDARD_EVENTS: Record<LComponentType, string[]> = {
   TGroupBox: ['OnClick'],
   TRadioGroup: ['OnClick', 'OnChange'],
   TPanel: ['OnClick', 'OnDblClick', 'OnMouseEnter'],
+  TFrame: ['OnClick', 'OnResize'],
+  TScrollBox: ['OnClick', 'OnScroll'],
+  TFlowPanel: ['OnClick', 'OnResize'],
+  TGridPanel: ['OnClick', 'OnResize'],
+  TPairSplitter: ['OnChange'],
+  TPairSplitterSide: ['OnClick'],
+  TTabSheet: ['OnShow', 'OnHide'],
+  TNotebook: ['OnChange', 'OnClick'],
+  TPage: ['OnShow', 'OnHide'],
   TBitBtn: ['OnClick'],
   TSpeedButton: ['OnClick'],
   TImage: ['OnClick', 'OnDblClick'],

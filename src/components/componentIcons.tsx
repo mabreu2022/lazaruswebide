@@ -27,7 +27,16 @@ import {
   Database,
   TableProperties,
   Link2,
-  Navigation
+  Navigation,
+  LayoutDashboard,
+  Layers,
+  BookOpen,
+  ScrollText,
+  WrapText,
+  LayoutGrid,
+  Columns2,
+  PanelLeftClose,
+  FileCode
 } from 'lucide-react';
 
 export const renderComponentIcon = (iconName: string, size = 16): React.ReactElement => {
@@ -60,6 +69,15 @@ export const renderComponentIcon = (iconName: string, size = 16): React.ReactEle
     case 'TableProperties': return <TableProperties size={size} />;
     case 'Link2': return <Link2 size={size} />;
     case 'Navigation': return <Navigation size={size} />;
+    case 'LayoutDashboard': return <LayoutDashboard size={size} />;
+    case 'Layers': return <Layers size={size} />;
+    case 'BookOpen': return <BookOpen size={size} />;
+    case 'ScrollText': return <ScrollText size={size} />;
+    case 'WrapText': return <WrapText size={size} />;
+    case 'LayoutGrid': return <LayoutGrid size={size} />;
+    case 'Columns2': return <Columns2 size={size} />;
+    case 'PanelLeftClose': return <PanelLeftClose size={size} />;
+    case 'FileCode': return <FileCode size={size} />;
     default: return <SquareMousePointer size={size} />;
   }
 };

@@ -5,6 +5,7 @@ import type {
   AlignType
 } from '../types/lazarus';
 import { STANDARD_EVENTS, FORM_EVENTS } from '../data/componentRegistry';
+import { isContainerComponent, canAdoptChild } from '../utils/layoutEngine';
 import {
   ListFilter,
   Zap,
@@ -114,7 +115,7 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
         <ChevronDown size={14} className="dropdown-arrow" />
       </div>
 
-      {/* Component Tree View (Collapsible) */}
+      {/* Component Tree View (Collapsible, Hierarchical) */}
       {showTree && (
         <div className="component-tree-view">
           <div
@@ -124,23 +125,65 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
             📁 <strong>{form.name}</strong> (T{form.name})
           </div>
           <div className="tree-children">
-            {form.components.map(c => {
-              const isChild = !!c.parentId;
-              const parentComp = isChild ? form.components.find(p => p.id === c.parentId) : null;
-              return (
+            {(() => {
+              const visited = new Set<string>();
+
+              const renderBranch = (parentId: string | undefined, depth: number): React.ReactNode => {
+                const branchComps = form.components.filter(c =>
+                  parentId ? c.parentId === parentId : !c.parentId
+                );
+
+                return branchComps.map(c => {
+                  visited.add(c.id);
+                  const isSelected = selectedComponentIds.includes(c.id);
+                  const isContainer = isContainerComponent(c.type);
+                  const childrenCount = form.components.filter(sub => sub.parentId === c.id).length;
+
+                  return (
+                    <React.Fragment key={c.id}>
+                      <div
+                        className={`tree-node comp-node ${isSelected ? 'active' : ''} ${depth > 1 ? 'is-child-node' : ''}`}
+                        style={{ paddingLeft: `${12 + (depth - 1) * 16}px` }}
+                        onClick={() => onSelectComponent(c.id)}
+                      >
+                        <span className="tree-node-icon">
+                          {isContainer ? (childrenCount > 0 ? '📂' : '📁') : '🧩'}
+                        </span>
+                        <span className="tree-node-name">{c.name}</span>
+                        <span className="tree-type">:{c.type}</span>
+                        {childrenCount > 0 && (
+                          <span className="tree-child-count">[{childrenCount}]</span>
+                        )}
+                      </div>
+                      {isContainer && renderBranch(c.id, depth + 1)}
+                    </React.Fragment>
+                  );
+                });
+              };
+
+              const renderedRoot = renderBranch(undefined, 1);
+
+              // Guard for any orphaned components whose parent was deleted or missing
+              const orphaned = form.components.filter(c => c.parentId && !visited.has(c.id));
+              const renderedOrphans = orphaned.map(c => (
                 <div
                   key={c.id}
-                  className={`tree-node comp-node ${selectedComponentIds.includes(c.id) ? 'active' : ''} ${isChild ? 'is-child-node' : ''}`}
-                  style={{ paddingLeft: isChild ? 24 : 12 }}
+                  className={`tree-node comp-node ${selectedComponentIds.includes(c.id) ? 'active' : ''}`}
+                  style={{ paddingLeft: '16px' }}
                   onClick={() => onSelectComponent(c.id)}
                 >
-                  <span>{isChild ? '↳ 📦' : '🧩'}</span>
-                  <span>{c.name}</span>
+                  <span>⚠️ {c.name}</span>
                   <span className="tree-type">:{c.type}</span>
-                  {parentComp && <span className="tree-parent-tag">({parentComp.name})</span>}
                 </div>
+              ));
+
+              return (
+                <>
+                  {renderedRoot}
+                  {renderedOrphans}
+                </>
               );
-            })}
+            })()}
           </div>
         </div>
       )}
@@ -319,7 +362,7 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                   />
                 )}
 
-                {/* Parent Container */}
+                {/* Parent Container (with cycle prevention) */}
                 {filterMatch('Parent', filterQuery) && (
                   <PropertyRow
                     label="Parent"
@@ -327,7 +370,7 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                     options={[
                       '(Form)',
                       ...form.components
-                        .filter(c => ['TPanel', 'TGroupBox', 'TScrollBox'].includes(c.type) && c.id !== selectedComp.id)
+                        .filter(c => isContainerComponent(c.type) && canAdoptChild(c.id, selectedComp.id, form.components))
                         .map(c => c.name)
                     ]}
                     value={
@@ -340,11 +383,123 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                         onUpdateComponent(selectedComp.id, { parentId: undefined });
                       } else {
                         const target = form.components.find(c => c.name === val);
-                        if (target) {
+                        if (target && canAdoptChild(target.id, selectedComp.id, form.components)) {
                           onUpdateComponent(selectedComp.id, { parentId: target.id });
                         }
                       }
                     }}
+                  />
+                )}
+
+                {/* BevelInner (TPanel) */}
+                {selectedComp.type === 'TPanel' && filterMatch('BevelInner', filterQuery) && (
+                  <PropertyRow
+                    label="BevelInner"
+                    type="select"
+                    options={['bvNone', 'bvLowered', 'bvRaised', 'bvSpace']}
+                    value={selectedComp.bevelInner || 'bvNone'}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { bevelInner: val as any })}
+                  />
+                )}
+
+                {/* BevelOuter (TPanel) */}
+                {selectedComp.type === 'TPanel' && filterMatch('BevelOuter', filterQuery) && (
+                  <PropertyRow
+                    label="BevelOuter"
+                    type="select"
+                    options={['bvNone', 'bvLowered', 'bvRaised', 'bvSpace']}
+                    value={selectedComp.bevelOuter || 'bvRaised'}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { bevelOuter: val as any })}
+                  />
+                )}
+
+                {/* BevelWidth (TPanel) */}
+                {selectedComp.type === 'TPanel' && filterMatch('BevelWidth', filterQuery) && (
+                  <PropertyRow
+                    label="BevelWidth"
+                    type="number"
+                    value={selectedComp.bevelWidth ?? 1}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { bevelWidth: Number(val) })}
+                  />
+                )}
+
+                {/* BorderStyle */}
+                {['TPanel', 'TFrame', 'TScrollBox', 'TFlowPanel', 'TGridPanel'].includes(selectedComp.type) && filterMatch('BorderStyle', filterQuery) && (
+                  <PropertyRow
+                    label="BorderStyle"
+                    type="select"
+                    options={['bsNone', 'bsSingle']}
+                    value={selectedComp.borderStyle || 'bsNone'}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { borderStyle: val as any })}
+                  />
+                )}
+
+                {/* AutoScroll (TScrollBox) */}
+                {selectedComp.type === 'TScrollBox' && filterMatch('AutoScroll', filterQuery) && (
+                  <PropertyRow
+                    label="AutoScroll"
+                    type="boolean"
+                    value={selectedComp.autoScroll ?? true}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { autoScroll: Boolean(val) })}
+                  />
+                )}
+
+                {/* FlowLayout (TFlowPanel) */}
+                {selectedComp.type === 'TFlowPanel' && filterMatch('FlowLayout', filterQuery) && (
+                  <PropertyRow
+                    label="FlowLayout"
+                    type="select"
+                    options={['tlLeftToRight', 'tlTopToBottom']}
+                    value={selectedComp.flowLayout || 'tlLeftToRight'}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { flowLayout: val as any })}
+                  />
+                )}
+
+                {/* GridColumns & GridRows (TGridPanel) */}
+                {selectedComp.type === 'TGridPanel' && filterMatch('GridColumns', filterQuery) && (
+                  <PropertyRow
+                    label="GridColumns"
+                    type="number"
+                    value={selectedComp.gridColumns ?? 2}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { gridColumns: Math.max(1, Number(val)) })}
+                  />
+                )}
+                {selectedComp.type === 'TGridPanel' && filterMatch('GridRows', filterQuery) && (
+                  <PropertyRow
+                    label="GridRows"
+                    type="number"
+                    value={selectedComp.gridRows ?? 2}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { gridRows: Math.max(1, Number(val)) })}
+                  />
+                )}
+
+                {/* SplitterPosition (TPairSplitter) */}
+                {selectedComp.type === 'TPairSplitter' && filterMatch('SplitterPosition', filterQuery) && (
+                  <PropertyRow
+                    label="SplitterPosition"
+                    type="number"
+                    value={selectedComp.splitterPosition ?? Math.round(selectedComp.width / 2)}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { splitterPosition: Number(val) })}
+                  />
+                )}
+
+                {/* ItemIndex (TRadioGroup) */}
+                {selectedComp.type === 'TRadioGroup' && filterMatch('ItemIndex', filterQuery) && (
+                  <PropertyRow
+                    label="ItemIndex"
+                    type="number"
+                    value={selectedComp.itemIndex ?? 0}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { itemIndex: Number(val) })}
+                  />
+                )}
+
+                {/* ActivePageIndex (TPageControl, TNotebook) */}
+                {['TPageControl', 'TNotebook'].includes(selectedComp.type) && filterMatch('ActivePageIndex', filterQuery) && (
+                  <PropertyRow
+                    label="ActivePageIndex"
+                    type="number"
+                    value={selectedComp.activePageIndex ?? selectedComp.activeTab ?? 0}
+                    onChange={(val) => onUpdateComponent(selectedComp.id, { activePageIndex: Number(val), activeTab: Number(val) })}
                   />
                 )}
 

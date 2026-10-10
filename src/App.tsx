@@ -271,12 +271,136 @@ const LazarusIDE: React.FC = () => {
       visible: true,
       isNonVisual: def.isNonVisual,
       events: {},
-      eventCode: {}
+      eventCode: {},
+      // Container-specific defaults
+      bevelInner: type === 'TPanel' ? 'bvNone' : undefined,
+      bevelOuter: type === 'TPanel' ? 'bvRaised' : undefined,
+      bevelWidth: type === 'TPanel' ? 1 : undefined,
+      borderStyle: (['TFrame', 'TScrollBox', 'TFlowPanel', 'TGridPanel'].includes(type)) ? 'bsSingle' : 'bsNone',
+      autoScroll: type === 'TScrollBox' ? true : undefined,
+      flowLayout: type === 'TFlowPanel' ? 'tlLeftToRight' : undefined,
+      gridColumns: type === 'TGridPanel' ? 2 : undefined,
+      gridRows: type === 'TGridPanel' ? 2 : undefined,
+      splitterPosition: type === 'TPairSplitter' ? Math.round(def.defaultWidth / 2) : undefined,
+      splitterOrientation: type === 'TPairSplitter' ? 'poVertical' : undefined,
+      items: type === 'TRadioGroup' ? ['Opção 1', 'Opção 2', 'Opção 3'] : undefined,
+      itemIndex: type === 'TRadioGroup' ? 0 : undefined,
+      tabs: (type === 'TPageControl' || type === 'TNotebook') ? ['Página 1', 'Página 2'] : undefined,
+      activeTab: (type === 'TPageControl' || type === 'TNotebook') ? 0 : undefined,
+      activePageIndex: (type === 'TPageControl' || type === 'TNotebook') ? 0 : undefined,
+      pageIndex: type === 'TNotebook' ? 0 : undefined
     };
+
+    const extraChildren: LComponent[] = [];
+
+    // Automatically create default sub-pages/sides for composite containers
+    if (type === 'TPageControl') {
+      const ts1Name = getNextComponentName('TTabSheet', [...form.components, newComp]);
+      const ts1: LComponent = {
+        id: `comp_${Date.now()}_ts1`,
+        type: 'TTabSheet',
+        name: ts1Name,
+        caption: 'Página 1',
+        parentId: newCompId,
+        left: 4,
+        top: 28,
+        width: def.defaultWidth - 8,
+        height: def.defaultHeight - 34,
+        enabled: true,
+        visible: true,
+        events: {},
+        eventCode: {}
+      };
+      const ts2Name = getNextComponentName('TTabSheet', [...form.components, newComp, ts1]);
+      const ts2: LComponent = {
+        id: `comp_${Date.now()}_ts2`,
+        type: 'TTabSheet',
+        name: ts2Name,
+        caption: 'Página 2',
+        parentId: newCompId,
+        left: 4,
+        top: 28,
+        width: def.defaultWidth - 8,
+        height: def.defaultHeight - 34,
+        enabled: true,
+        visible: false,
+        events: {},
+        eventCode: {}
+      };
+      extraChildren.push(ts1, ts2);
+    } else if (type === 'TNotebook') {
+      const p1Name = getNextComponentName('TPage', [...form.components, newComp]);
+      const p1: LComponent = {
+        id: `comp_${Date.now()}_p1`,
+        type: 'TPage',
+        name: p1Name,
+        caption: 'Página 1',
+        parentId: newCompId,
+        left: 4,
+        top: 4,
+        width: def.defaultWidth - 8,
+        height: def.defaultHeight - 8,
+        enabled: true,
+        visible: true,
+        events: {},
+        eventCode: {}
+      };
+      const p2Name = getNextComponentName('TPage', [...form.components, newComp, p1]);
+      const p2: LComponent = {
+        id: `comp_${Date.now()}_p2`,
+        type: 'TPage',
+        name: p2Name,
+        caption: 'Página 2',
+        parentId: newCompId,
+        left: 4,
+        top: 4,
+        width: def.defaultWidth - 8,
+        height: def.defaultHeight - 8,
+        enabled: true,
+        visible: false,
+        events: {},
+        eventCode: {}
+      };
+      extraChildren.push(p1, p2);
+    } else if (type === 'TPairSplitter') {
+      const s1Name = getNextComponentName('TPairSplitterSide', [...form.components, newComp]);
+      const s1: LComponent = {
+        id: `comp_${Date.now()}_s1`,
+        type: 'TPairSplitterSide',
+        name: s1Name,
+        caption: 'Lado 1',
+        parentId: newCompId,
+        left: 0,
+        top: 0,
+        width: Math.round(def.defaultWidth / 2) - 4,
+        height: def.defaultHeight,
+        enabled: true,
+        visible: true,
+        events: {},
+        eventCode: {}
+      };
+      const s2Name = getNextComponentName('TPairSplitterSide', [...form.components, newComp, s1]);
+      const s2: LComponent = {
+        id: `comp_${Date.now()}_s2`,
+        type: 'TPairSplitterSide',
+        name: s2Name,
+        caption: 'Lado 2',
+        parentId: newCompId,
+        left: Math.round(def.defaultWidth / 2) + 4,
+        top: 0,
+        width: Math.round(def.defaultWidth / 2) - 4,
+        height: def.defaultHeight,
+        enabled: true,
+        visible: true,
+        events: {},
+        eventCode: {}
+      };
+      extraChildren.push(s1, s2);
+    }
 
     const updatedForm: LForm = {
       ...form,
-      components: [...form.components, newComp]
+      components: [...form.components, newComp, ...extraChildren]
     };
 
     pushState(updatedForm);
@@ -306,10 +430,22 @@ const LazarusIDE: React.FC = () => {
     );
   }, [activeFormId]);
 
-  // Delete Components
+  // Delete Components (with recursive cascade deletion of children)
   const handleDeleteComponents = useCallback((ids: string[]) => {
-    const remaining = form.components.filter(c => !ids.includes(c.id));
-    const deletedNames = form.components.filter(c => ids.includes(c.id)).map(c => c.name).join(', ');
+    const allToDelete = new Set<string>(ids);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const comp of form.components) {
+        if (comp.parentId && allToDelete.has(comp.parentId) && !allToDelete.has(comp.id)) {
+          allToDelete.add(comp.id);
+          added = true;
+        }
+      }
+    }
+
+    const remaining = form.components.filter(c => !allToDelete.has(c.id));
+    const deletedNames = form.components.filter(c => allToDelete.has(c.id)).map(c => c.name).join(', ');
     const updatedForm: LForm = { ...form, components: remaining };
 
     pushState(updatedForm);

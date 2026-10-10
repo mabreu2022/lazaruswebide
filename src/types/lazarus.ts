@@ -20,17 +20,26 @@ export type LComponentType =
   | 'TGroupBox'
   | 'TRadioGroup'
   | 'TPanel'
+  | 'TFrame'
   // Additional
   | 'TBitBtn'
   | 'TSpeedButton'
   | 'TImage'
   | 'TShape'
   | 'TBevel'
+  | 'TScrollBox'
+  | 'TFlowPanel'
+  | 'TGridPanel'
+  | 'TPairSplitter'
+  | 'TPairSplitterSide'
   // Common Controls
   | 'TProgressBar'
   | 'TTrackBar'
   | 'TStatusBar'
   | 'TPageControl'
+  | 'TTabSheet'
+  | 'TNotebook'
+  | 'TPage'
   // Dialogs
   | 'TOpenDialog'
   | 'TSaveDialog'
@@ -57,6 +66,16 @@ export interface LComponentDefinition {
 }
 
 export type AlignType = 'alNone' | 'alTop' | 'alBottom' | 'alLeft' | 'alRight' | 'alClient';
+export type AnchorType = 'akLeft' | 'akTop' | 'akRight' | 'akBottom';
+export type BevelStyle = 'bvNone' | 'bvLowered' | 'bvRaised' | 'bvSpace';
+export type BorderStyle = 'bsNone' | 'bsSingle';
+
+export interface ChildSizingConfig {
+  layout?: 'cslChoose' | 'cslHomogenous';
+  controlsPerLine?: number;
+  horizontalSpacing?: number;
+  verticalSpacing?: number;
+}
 
 export interface LComponent {
   id: string;
@@ -81,11 +100,25 @@ export interface LComponent {
   showHint?: boolean;
   tabOrder?: number;
   align?: AlignType;
-  parentId?: string; // Container component ID (e.g. TPanel)
+  anchors?: AnchorType[];
+  parentId?: string; // Container component ID (e.g. TPanel, TTabSheet, TFrame)
+  // Container & Bevel properties
+  bevelInner?: BevelStyle;
+  bevelOuter?: BevelStyle;
+  bevelWidth?: number;
+  borderStyle?: BorderStyle;
+  autoScroll?: boolean;
+  flowLayout?: 'tlLeftToRight' | 'tlTopToBottom';
+  gridRows?: number;
+  gridColumns?: number;
+  splitterPosition?: number;
+  splitterOrientation?: 'poVertical' | 'poHorizontal';
+  childSizing?: ChildSizingConfig;
   // Specific properties
   checked?: boolean;
   items?: string[];
   selectedIndex?: number;
+  itemIndex?: number;
   progress?: number;
   min?: number;
   max?: number;
@@ -94,6 +127,8 @@ export interface LComponent {
   imageUrl?: string;
   tabs?: string[];
   activeTab?: number;
+  activePageIndex?: number;
+  pageIndex?: number;
   isNonVisual?: boolean;
   // Database Properties (Firebird 5.0 & Zeos DBO)
   protocol?: string;         // 'firebird-5.0', 'firebird-4.0', 'sqlite-3', etc.

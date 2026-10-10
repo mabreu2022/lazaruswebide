@@ -5,6 +5,61 @@ import { computeFullFormLayout } from '../utils/layoutEngine';
 import { Info, RotateCcw, X } from 'lucide-react';
 import '../App.css';
 
+function getHierarchyDepth(id: string, components: LComponent[]): number {
+  let depth = 0;
+  let curr = components.find(c => c.id === id)?.parentId;
+  const visited = new Set<string>();
+  while (curr) {
+    if (visited.has(curr)) break;
+    visited.add(curr);
+    depth++;
+    const p = components.find(c => c.id === curr);
+    curr = p?.parentId;
+  }
+  return depth;
+}
+
+function isComponentVisibleInHierarchy(comp: LComponent, components: LComponent[]): boolean {
+  if (comp.visible === false) return false;
+  let currParentId = comp.parentId;
+  const visited = new Set<string>();
+
+  while (currParentId) {
+    if (visited.has(currParentId)) break;
+    visited.add(currParentId);
+
+    const parent = components.find(c => c.id === currParentId);
+    if (!parent) break;
+    if (parent.visible === false) return false;
+
+    // Check if parent is a TabSheet inside a PageControl
+    if (parent.type === 'TTabSheet' && parent.parentId) {
+      const pc = components.find(c => c.id === parent.parentId);
+      if (pc && pc.type === 'TPageControl') {
+        const tabSheets = components.filter(c => c.parentId === pc.id && c.type === 'TTabSheet');
+        const activeIdx = pc.activeTab ?? pc.activePageIndex ?? 0;
+        const activeSheet = tabSheets[activeIdx] || tabSheets[0];
+        if (activeSheet && activeSheet.id !== parent.id) return false;
+      }
+    }
+
+    // Check if parent is a Page inside a Notebook
+    if (parent.type === 'TPage' && parent.parentId) {
+      const nb = components.find(c => c.id === parent.parentId);
+      if (nb && nb.type === 'TNotebook') {
+        const pages = components.filter(c => c.parentId === nb.id && c.type === 'TPage');
+        const activeIdx = nb.pageIndex ?? nb.activePageIndex ?? 0;
+        const activePage = pages[activeIdx] || pages[0];
+        if (activePage && activePage.id !== parent.id) return false;
+      }
+    }
+
+    currParentId = parent.parentId;
+  }
+
+  return true;
+}
+
 export const StandaloneRunner: React.FC = () => {
   const [form, setForm] = useState<LForm | null>(null);
   const [componentsState, setComponentsState] = useState<Record<string, LComponent>>({});
@@ -195,17 +250,20 @@ export const StandaloneRunner: React.FC = () => {
             return allComps.map(comp => {
               if (!comp.visible && !comp.isNonVisual) return null;
               if (comp.isNonVisual) return null;
+              if (!isComponentVisibleInHierarchy(comp, allComps)) return null;
 
-              const parentRect = comp.parentId ? layoutMap.get(comp.parentId) : null;
               const rect = layoutMap.get(comp.id) || {
                 left: comp.left,
                 top: comp.top,
                 width: comp.width,
-                height: comp.height
+                height: comp.height,
+                absLeft: comp.left,
+                absTop: comp.top
               };
 
-              const displayLeft = (parentRect ? parentRect.left : 0) + rect.left;
-              const displayTop = (parentRect ? parentRect.top : 0) + rect.top;
+              const displayLeft = rect.absLeft;
+              const displayTop = rect.absTop;
+              const depth = getHierarchyDepth(comp.id, allComps);
 
               return (
                 <div
@@ -215,11 +273,13 @@ export const StandaloneRunner: React.FC = () => {
                     left: `${displayLeft}px`,
                     top: `${displayTop}px`,
                     width: `${rect.width}px`,
-                    height: `${rect.height}px`
+                    height: `${rect.height}px`,
+                    zIndex: 10 + depth * 2
                   }}
                 >
                   <InteractiveWidget
                     comp={comp}
+                    allComps={allComps}
                     onTrigger={(evt) => triggerEvent(comp, evt)}
                     onUpdate={(updates) => handleUpdateComponent(comp.id, updates)}
                   />
@@ -270,11 +330,12 @@ export const StandaloneRunner: React.FC = () => {
 // Interactive Widgets
 interface InteractiveWidgetProps {
   comp: LComponent;
+  allComps: LComponent[];
   onTrigger: (eventName: string) => void;
   onUpdate: (updates: Partial<LComponent>) => void;
 }
 
-const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, onTrigger, onUpdate }) => {
+const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, allComps, onTrigger, onUpdate }) => {
   const fontStyle: React.CSSProperties = {
     color: comp.fontColor || 'inherit',
     fontSize: comp.fontSize ? `${comp.fontSize}px` : undefined,
@@ -447,36 +508,211 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, onTrigger, 
         </div>
       );
 
-    case 'TPanel':
+    case 'TPanel': {
+      const outer = comp.bevelOuter || 'bvRaised';
+      const inner = comp.bevelInner || 'bvNone';
+      const bw = comp.bevelWidth ?? 1;
+      const borderSingle = comp.borderStyle === 'bsSingle';
+
       return (
         <div
-          className="run-widget run-panel"
-          style={{ ...fontStyle, backgroundColor: comp.color || '#ece9d8' }}
-          onClick={() => onTrigger('OnClick')}
+          className={`run-widget run-panel bevel-outer-${outer.replace('bv', '').toLowerCase()} ${borderSingle ? 'border-single' : ''}`}
+          style={{
+            ...fontStyle,
+            backgroundColor: comp.color || '#ece9d8',
+            borderWidth: outer !== 'bvNone' ? `${bw}px` : undefined
+          }}
+          onClick={comp.events?.OnClick ? () => onTrigger('OnClick') : undefined}
         >
-          <span>{comp.caption || comp.name}</span>
+          <div
+            className={`panel-inner-container bevel-inner-${inner.replace('bv', '').toLowerCase()}`}
+            style={{ borderWidth: inner !== 'bvNone' ? `${bw}px` : undefined }}
+          >
+            {comp.caption && <span className="panel-caption">{comp.caption}</span>}
+          </div>
         </div>
       );
+    }
 
     case 'TGroupBox':
       return (
-        <fieldset className="run-widget run-groupbox" style={fontStyle}>
-          <legend>{comp.caption || comp.name}</legend>
+        <fieldset
+          className="run-widget run-groupbox groupbox-fieldset"
+          style={fontStyle}
+          onClick={comp.events?.OnClick ? () => onTrigger('OnClick') : undefined}
+        >
+          <legend className="groupbox-legend">{comp.caption || comp.name}</legend>
         </fieldset>
       );
 
-    case 'TRadioGroup':
+    case 'TRadioGroup': {
       const groupItems = comp.items && comp.items.length > 0 ? comp.items : ['Opção 1', 'Opção 2'];
+      const activeIdx = comp.itemIndex ?? 0;
       return (
-        <fieldset className="run-widget run-radiogroup" style={fontStyle}>
-          <legend>{comp.caption || comp.name}</legend>
-          {groupItems.map((item, idx) => (
-            <label key={idx} className="run-radiogroup-item">
-              <input type="radio" name={comp.name} defaultChecked={idx === 0} />
-              <span>{item}</span>
-            </label>
-          ))}
+        <fieldset className="run-widget run-radiogroup radiogroup-fieldset" style={fontStyle}>
+          <legend className="radiogroup-legend">{comp.caption || comp.name}</legend>
+          <div className="radiogroup-items-list">
+            {groupItems.map((item, idx) => (
+              <label
+                key={idx}
+                className={`run-radiogroup-item ${idx === activeIdx ? 'active-radio' : ''}`}
+                onClick={() => {
+                  onUpdate({ itemIndex: idx });
+                  onTrigger('OnClick');
+                }}
+              >
+                <input
+                  type="radio"
+                  name={`run_rg_${comp.id}`}
+                  checked={idx === activeIdx}
+                  onChange={() => {}}
+                />
+                <span>{item}</span>
+              </label>
+            ))}
+          </div>
         </fieldset>
+      );
+    }
+
+    case 'TFrame':
+      return (
+        <div className="run-widget lcl-frame" style={fontStyle} />
+      );
+
+    case 'TPageControl': {
+      const tabSheets = allComps.filter(c => c.parentId === comp.id && c.type === 'TTabSheet');
+      const tabNames = tabSheets.length > 0
+        ? tabSheets.map(s => s.caption || s.name)
+        : (comp.tabs && comp.tabs.length > 0 ? comp.tabs : ['Página 1', 'Página 2']);
+      const activeIdx = Math.min(tabNames.length - 1, Math.max(0, comp.activeTab ?? comp.activePageIndex ?? 0));
+
+      return (
+        <div className="run-widget run-pagecontrol lcl-pagecontrol">
+          <div className="page-tabs-header">
+            {tabNames.map((tb, idx) => (
+              <div
+                key={idx}
+                className={`page-tab ${idx === activeIdx ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate({ activeTab: idx, activePageIndex: idx });
+                  onTrigger('OnChange');
+                }}
+              >
+                {tb}
+              </div>
+            ))}
+          </div>
+          <div className="page-tab-content-area" />
+        </div>
+      );
+    }
+
+    case 'TTabSheet':
+      return (
+        <div className="run-widget lcl-tabsheet" style={fontStyle} />
+      );
+
+    case 'TNotebook': {
+      const pages = allComps.filter(c => c.parentId === comp.id && c.type === 'TPage');
+      const totalPages = Math.max(1, pages.length > 0 ? pages.length : (comp.tabs?.length || 2));
+      const activeIdx = Math.min(totalPages - 1, Math.max(0, comp.pageIndex ?? comp.activePageIndex ?? 0));
+
+      return (
+        <div className="run-widget lcl-notebook" style={fontStyle}>
+          <div className="notebook-designer-bar">
+            <span className="notebook-title">📖 {comp.caption || comp.name}</span>
+            <div className="notebook-nav">
+              <button
+                className="nb-nav-btn"
+                disabled={activeIdx === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate({ pageIndex: Math.max(0, activeIdx - 1) });
+                  onTrigger('OnChange');
+                }}
+              >
+                ◄
+              </button>
+              <span className="nb-page-text">{activeIdx + 1} / {totalPages}</span>
+              <button
+                className="nb-nav-btn"
+                disabled={activeIdx >= totalPages - 1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate({ pageIndex: Math.min(totalPages - 1, activeIdx + 1) });
+                  onTrigger('OnChange');
+                }}
+              >
+                ►
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    case 'TPage':
+      return (
+        <div className="run-widget lcl-page" style={fontStyle} />
+      );
+
+    case 'TScrollBox':
+      return (
+        <div
+          className="run-widget lcl-scrollbox"
+          style={{ ...fontStyle, overflow: comp.autoScroll ?? true ? 'auto' : 'hidden' }}
+        />
+      );
+
+    case 'TFlowPanel':
+      return (
+        <div className="run-widget lcl-flowpanel" style={fontStyle} />
+      );
+
+    case 'TGridPanel':
+      return (
+        <div className="run-widget lcl-gridpanel" style={fontStyle} />
+      );
+
+    case 'TPairSplitter': {
+      const splitPos = Math.max(20, Math.min(comp.width - 20, comp.splitterPosition ?? Math.round(comp.width / 2)));
+      return (
+        <div className="run-widget lcl-pairsplitter" style={fontStyle}>
+          <div
+            className="pairsplitter-bar"
+            style={{ left: `${splitPos - 3}px` }}
+            title="Arrastar divisor"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              const startX = e.clientX;
+              const startPos = splitPos;
+
+              const onMove = (me: MouseEvent) => {
+                const delta = me.clientX - startX;
+                const newPos = Math.max(20, Math.min(comp.width - 20, Math.round(startPos + delta)));
+                onUpdate({ splitterPosition: newPos });
+              };
+
+              const onUp = () => {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+              };
+
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+          >
+            <div className="splitter-grip-dots" />
+          </div>
+        </div>
+      );
+    }
+
+    case 'TPairSplitterSide':
+      return (
+        <div className="run-widget lcl-pairsplitterside" style={fontStyle} />
       );
 
     case 'TDBGrid':
