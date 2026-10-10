@@ -6,15 +6,18 @@ import {
   Layout,
   Copy,
   Check,
-  FolderOpen
+  FolderOpen,
+  X
 } from 'lucide-react';
 
 interface CodeEditorProps {
   form: LForm;
   forms?: LForm[];
   activeFile: string;
+  openFiles?: string[];
   activeEventToEdit?: { componentId: string; eventName: string; procedureName: string };
   onChangeActiveFile: (file: string) => void;
+  onCloseFile?: (file: string) => void;
   onSelectForm?: (formId: string) => void;
   onToggleFormCode: () => void;
   onUpdateEventCode?: (componentId: string | null, eventName: string, code: string) => void;
@@ -24,8 +27,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   form,
   forms,
   activeFile,
+  openFiles,
   activeEventToEdit,
   onChangeActiveFile,
+  onCloseFile,
   onSelectForm,
   onToggleFormCode
 }) => {
@@ -112,6 +117,18 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   };
 
+  const defaultTabs = React.useMemo(() => {
+    const list: string[] = [];
+    allForms.forEach(f => {
+      const uName = (f.unitName || 'Unit1').toLowerCase();
+      list.push(`${uName}.pas`);
+      list.push(`${uName}.lfm`);
+    });
+    list.push('project1.lpr');
+    return list;
+  }, [allForms]);
+
+  const displayedFiles = openFiles !== undefined ? openFiles : defaultTabs;
   const lines = getCurrentCode().split('\n');
 
   return (
@@ -119,42 +136,49 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       {/* File Tabs & Actions Header */}
       <div className="code-editor-header">
         <div className="code-files-tabs">
-          {allForms.map(f => {
-            const uName = f.unitName || 'Unit1';
-            const pasFile = `${uName}.pas`.toLowerCase();
-            const lfmFile = `${uName}.lfm`.toLowerCase();
+          {displayedFiles.map(fileKey => {
+            const lower = fileKey.toLowerCase();
+            const isPas = lower.endsWith('.pas');
+            const isLfm = lower.endsWith('.lfm');
+            const isLpr = lower.endsWith('.lpr');
+            const isActive = activeFile.toLowerCase() === lower;
+
+            const matchedForm = allForms.find(f => {
+              const uName = (f.unitName || '').toLowerCase();
+              return uName && (lower === `${uName}.pas` || lower === `${uName}.lfm`);
+            });
+
             return (
-              <React.Fragment key={f.id}>
-                <button
-                  className={`file-tab ${activeFile.toLowerCase() === pasFile ? 'active' : ''}`}
-                  onClick={() => {
-                    onChangeActiveFile(pasFile);
-                    onSelectForm?.(f.id);
-                  }}
-                >
-                  <FileCode size={14} className="icon-pascal" />
-                  <span>{uName}.pas</span>
-                </button>
-                <button
-                  className={`file-tab ${activeFile.toLowerCase() === lfmFile ? 'active' : ''}`}
-                  onClick={() => {
-                    onChangeActiveFile(lfmFile);
-                    onSelectForm?.(f.id);
-                  }}
-                >
-                  <FolderOpen size={14} className="icon-lfm" />
-                  <span>{uName}.lfm</span>
-                </button>
-              </React.Fragment>
+              <div
+                key={fileKey}
+                className={`file-tab ${isActive ? 'active' : ''}`}
+                onClick={() => {
+                  onChangeActiveFile(lower);
+                  if (matchedForm) {
+                    onSelectForm?.(matchedForm.id);
+                  }
+                }}
+                title={`Arquivo: ${fileKey}`}
+              >
+                {isPas && <FileCode size={13} className="icon-pascal" />}
+                {isLfm && <FolderOpen size={13} className="icon-lfm" />}
+                {isLpr && <FileCode size={13} className="icon-lpr" />}
+                <span className="file-tab-label">{fileKey}</span>
+                {onCloseFile && (
+                  <button
+                    className="tab-close-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCloseFile(fileKey);
+                    }}
+                    title={`Fechar aba ${fileKey}`}
+                  >
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
             );
           })}
-          <button
-            className={`file-tab ${activeFile.toLowerCase() === 'project1.lpr' ? 'active' : ''}`}
-            onClick={() => onChangeActiveFile('project1.lpr')}
-          >
-            <FileCode size={14} className="icon-lpr" />
-            <span>Project1.lpr</span>
-          </button>
         </div>
 
         <div className="code-editor-actions">
@@ -195,41 +219,56 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
       </div>
 
-      {/* Editor Main Canvas with Synchronized Scrolling & Syntax Coloring */}
-      <div className="code-editor-body">
-        {/* Line Numbers Gutter (Scrolled in sync with textarea) */}
-        <div ref={lineNumbersRef} className="code-line-numbers">
-          <div className="line-numbers-inner">
-            {lines.map((_: string, i: number) => (
-              <div key={i} className="line-num">{i + 1}</div>
-            ))}
-            <div className="line-gutter-spacer" />
+      {/* Editor Main Canvas or Empty State */}
+      {displayedFiles.length === 0 ? (
+        <div className="code-editor-empty-state">
+          <FileCode size={44} className="empty-state-icon" />
+          <h3>Nenhum arquivo aberto no editor</h3>
+          <p>
+            Dê um duplo-clique em qualquer arquivo no <strong>Inspetor de Projetos</strong> para abri-lo aqui,
+            ou retorne para a edição visual do formulário.
+          </p>
+          <button className="code-action-btn return-form-btn empty-return-btn" onClick={onToggleFormCode}>
+            <Layout size={14} />
+            <span>Voltar ao Form (F12)</span>
+          </button>
+        </div>
+      ) : (
+        <div className="code-editor-body">
+          {/* Line Numbers Gutter (Scrolled in sync with textarea) */}
+          <div ref={lineNumbersRef} className="code-line-numbers">
+            <div className="line-numbers-inner">
+              {lines.map((_: string, i: number) => (
+                <div key={i} className="line-num">{i + 1}</div>
+              ))}
+              <div className="line-gutter-spacer" />
+            </div>
+          </div>
+
+          {/* Text Area Code Editor with Native Scroll */}
+          <div className="code-text-area-container">
+            <textarea
+              ref={textareaRef}
+              className="code-textarea"
+              value={getCurrentCode()}
+              onScroll={handleScroll}
+              onChange={(e) => {
+                setUserEditedCode(prev => ({ ...prev, [activeFile]: e.target.value }));
+              }}
+              spellCheck={false}
+              autoCapitalize="none"
+              autoComplete="off"
+              wrap="off"
+            />
+
+            {/* Syntax Highlight Overlay (Synchronized with textarea scroll) */}
+            <pre ref={overlayRef} className="code-syntax-overlay" aria-hidden="true">
+              <code dangerouslySetInnerHTML={{ __html: highlightPascal(getCurrentCode(), activeFile) }} />
+              <div className="code-overlay-spacer" />
+            </pre>
           </div>
         </div>
-
-        {/* Text Area Code Editor with Native Scroll */}
-        <div className="code-text-area-container">
-          <textarea
-            ref={textareaRef}
-            className="code-textarea"
-            value={getCurrentCode()}
-            onScroll={handleScroll}
-            onChange={(e) => {
-              setUserEditedCode(prev => ({ ...prev, [activeFile]: e.target.value }));
-            }}
-            spellCheck={false}
-            autoCapitalize="none"
-            autoComplete="off"
-            wrap="off"
-          />
-
-          {/* Syntax Highlight Overlay (Synchronized with textarea scroll) */}
-          <pre ref={overlayRef} className="code-syntax-overlay" aria-hidden="true">
-            <code dangerouslySetInnerHTML={{ __html: highlightPascal(getCurrentCode(), activeFile) }} />
-            <div className="code-overlay-spacer" />
-          </pre>
-        </div>
-      </div>
+      )}
 
       {/* Code Status Footer */}
       <div className="code-footer-bar">

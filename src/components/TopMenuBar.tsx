@@ -14,7 +14,8 @@ import {
   HelpCircle,
   FileCode,
   Layers,
-  Sparkles
+  Sparkles,
+  FolderOpen
 } from 'lucide-react';
 import type { IDEState } from '../types/lazarus';
 
@@ -33,6 +34,8 @@ interface TopMenuBarProps {
   canUndo: boolean;
   canRedo: boolean;
   onOpenSample: (sampleType: 'calc' | 'crud' | 'login' | 'firebird') => void;
+  onToggleProjectInspector?: () => void;
+  isProjectInspectorOpen?: boolean;
 }
 
 export const TopMenuBar: React.FC<TopMenuBarProps> = ({
@@ -49,7 +52,9 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
   onRedo,
   canUndo,
   canRedo,
-  onOpenSample
+  onOpenSample,
+  onToggleProjectInspector,
+  isProjectInspectorOpen = false
 }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
@@ -162,6 +167,48 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
             )}
           </div>
 
+          {/* Projeto */}
+          <div className="menu-item-container">
+            <button
+              className={`menu-btn ${activeMenu === 'project' ? 'active' : ''}`}
+              onClick={() => toggleMenu('project')}
+            >
+              <u>P</u>rojeto
+            </button>
+            {activeMenu === 'project' && (
+              <div className="menu-dropdown">
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onToggleProjectInspector?.();
+                    closeMenu();
+                  }}
+                >
+                  <FolderOpen size={14} className="icon-blue" /> Inspetor de Projetos <span className="shortcut">Ctrl+F11</span>
+                </div>
+                <div className="dropdown-divider" />
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onNewForm();
+                    closeMenu();
+                  }}
+                >
+                  <Plus size={14} /> Novo Formulário (.pas + .lfm) <span className="shortcut">Ctrl+N</span>
+                </div>
+                <div
+                  className="dropdown-action"
+                  onClick={() => {
+                    onExportProject();
+                    closeMenu();
+                  }}
+                >
+                  <Download size={14} /> Exportar Projeto (.zip)
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Executar */}
           <div className="menu-item-container">
             <button
@@ -193,7 +240,7 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
             {activeMenu === 'help' && (
               <div className="menu-dropdown">
                 <div className="dropdown-action" onClick={() => {
-                  alert('Lazarus Web IDE 3.0\nAmbiente de Desenvolvimento Visual RAD Object Pascal para a Web.\n\nAtalhos Rápidos:\n• F12: Alternar entre Form e Código Pascal\n• F9: Executar aplicação\n• Del: Excluir componente\n• Setas: Mover componente selecionado');
+                  alert('Lazarus Web IDE 3.0\nAmbiente de Desenvolvimento Visual RAD Object Pascal para a Web.\n\nAtalhos Rápidos:\n• F12: Alternar entre Form e Código Pascal\n• F9: Executar aplicação\n• Ctrl+F11: Inspetor de Projetos\n• Del: Excluir componente\n• Setas: Mover componente selecionado');
                   closeMenu();
                 }}>
                   <HelpCircle size={14} /> Sobre o Lazarus Web IDE
@@ -220,11 +267,19 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
       <div className="lazarus-toolbar-row">
         {/* Project group */}
         <div className="tool-group">
-          <button className="tool-btn" onClick={onNewForm} title="Novo Formulário (Limpar)">
+          <button className="tool-btn" onClick={onNewForm} title="Novo Formulário (Ctrl+N)">
             <Plus size={16} />
           </button>
           <button className="tool-btn" onClick={onExportProject} title="Exportar Projeto (.pas e .lfm)">
             <Download size={16} />
+          </button>
+          <button
+            className={`tool-btn ${isProjectInspectorOpen ? 'active' : ''}`}
+            onClick={onToggleProjectInspector}
+            title="Inspetor de Projetos (Ctrl+F11)"
+          >
+            <FolderOpen size={16} />
+            <span>Inspetor de Projetos</span>
           </button>
         </div>
 

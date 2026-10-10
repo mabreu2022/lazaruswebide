@@ -15,6 +15,8 @@ import { ObjectInspector } from './components/ObjectInspector';
 import { CodeEditor } from './components/CodeEditor';
 import { BottomConsole } from './components/BottomConsole';
 import { StandaloneRunner } from './components/StandaloneRunner';
+import { ProjectInspector } from './components/ProjectInspector';
+import { Sliders, FolderOpen } from 'lucide-react';
 import { getSampleProject } from './data/sampleProjects';
 import { generateUnitPas, generateLFM, generateProjectLpr, generateLPI } from './utils/pascalGenerator';
 import './App.css';
@@ -131,6 +133,12 @@ const LazarusIDE: React.FC = () => {
   const [selectedPaletteComponent, setSelectedPaletteComponent] = useState<LComponentType | null>(null);
   const [activeTab, setActiveTab] = useState<'form' | 'code' | 'lfm' | 'project'>('form');
   const [activeCodeFile, setActiveCodeFile] = useState<string>('unit1.pas');
+  const [openCodeFiles, setOpenCodeFiles] = useState<string[]>([
+    'unit1.pas',
+    'unit1.lfm'
+  ]);
+  const [leftDockTab, setLeftDockTab] = useState<'inspector' | 'project'>('inspector');
+  const [isProjectInspectorFloating, setIsProjectInspectorFloating] = useState<boolean>(false);
   const [theme, setTheme] = useState<'lazarus-dark' | 'lazarus-classic'>('lazarus-dark');
   const [gridSize, setGridSize] = useState<number>(8);
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
@@ -367,8 +375,16 @@ const LazarusIDE: React.FC = () => {
 
   // F12 Toggle between Form and Code
   const handleToggleFormCode = useCallback(() => {
-    setActiveTab(prev => (prev === 'code' ? 'form' : 'code'));
-  }, []);
+    setActiveTab(prev => {
+      const next = prev === 'code' ? 'form' : 'code';
+      if (next === 'code') {
+        const currentPas = `${form.unitName || 'Unit1'}.pas`.toLowerCase();
+        setOpenCodeFiles(files => files.includes(currentPas) ? files : [...files, currentPas]);
+        setActiveCodeFile(currentPas);
+      }
+      return next;
+    });
+  }, [form.unitName]);
 
   // Double click component: generate/navigate to default event in Code Editor
   const handleDoubleClickComponent = useCallback((comp: LComponent) => {
@@ -387,10 +403,12 @@ const LazarusIDE: React.FC = () => {
       eventName: defaultEvent,
       procedureName: procName
     });
+    const pasFile = `${form.unitName || 'Unit1'}.pas`.toLowerCase();
+    setOpenCodeFiles(prev => prev.includes(pasFile) ? prev : [...prev, pasFile]);
+    setActiveCodeFile(pasFile);
     setActiveTab('code');
-    setActiveCodeFile('unit1.pas');
     addConsoleLog(`Navegando para o procedimento: procedure T${form.name}.${procName}`, 'info');
-  }, [form.name, handleUpdateComponent, addConsoleLog]);
+  }, [form.name, form.unitName, handleUpdateComponent, addConsoleLog]);
 
   // Open event handler from Object Inspector
   const handleOpenEventHandler = useCallback((componentId: string | null, eventName: string, procedureName: string) => {
@@ -399,21 +417,36 @@ const LazarusIDE: React.FC = () => {
       eventName,
       procedureName
     });
+    const pasFile = `${form.unitName || 'Unit1'}.pas`.toLowerCase();
+    setOpenCodeFiles(prev => prev.includes(pasFile) ? prev : [...prev, pasFile]);
+    setActiveCodeFile(pasFile);
     setActiveTab('code');
-    setActiveCodeFile('unit1.pas');
-  }, []);
+  }, [form.unitName]);
 
-  // Create a new Form in the project (Lazarus Multi-Form support)
+  // Create a new Form in the project (Lazarus Multi-Form support: Form1/Unit1, Form2/Unit2, Form3/Unit3...)
   const handleNewForm = useCallback(() => {
-    const nextNum = forms.length + 1;
+    let nextNum = 1;
+    while (
+      forms.some(
+        f =>
+          f.name.toLowerCase() === `form${nextNum}`.toLowerCase() ||
+          (f.unitName || '').toLowerCase() === `unit${nextNum}`.toLowerCase()
+      )
+    ) {
+      nextNum++;
+    }
+
     const newId = `form_${Date.now()}`;
+    const formName = `Form${nextNum}`;
+    const unitName = `Unit${nextNum}`;
+
     const newForm: LForm = {
       id: newId,
-      name: `Form${nextNum}`,
-      unitName: `Unit${nextNum}`,
-      caption: `Form${nextNum}`,
-      left: Math.min(240, 60 + forms.length * 24),
-      top: Math.min(180, 40 + forms.length * 24),
+      name: formName,
+      unitName: unitName,
+      caption: formName,
+      left: Math.min(260, 60 + ((nextNum - 1) % 6) * 24),
+      top: Math.min(200, 40 + ((nextNum - 1) % 6) * 24),
       width: 580,
       height: 420,
       color: '#ece9d8',
@@ -427,9 +460,23 @@ const LazarusIDE: React.FC = () => {
     setForms(prev => [...prev, newForm]);
     setActiveFormId(newId);
     setSelectedComponentIds([]);
-    setActiveCodeFile(`unit${nextNum}.pas`.toLowerCase());
-    addConsoleLog(`[Projeto] Novo formulário criado: Form${nextNum} (${newForm.unitName}.pas / ${newForm.unitName}.lfm)`, 'success');
-  }, [forms.length, addConsoleLog]);
+
+    // Open unitX.pas and unitX.lfm in code editor tabs
+    const pasFile = `${unitName}.pas`.toLowerCase();
+    const lfmFile = `${unitName}.lfm`.toLowerCase();
+    setOpenCodeFiles(prev => {
+      const next = [...prev];
+      if (!next.includes(pasFile)) next.push(pasFile);
+      if (!next.includes(lfmFile)) next.push(lfmFile);
+      return next;
+    });
+    setActiveCodeFile(pasFile);
+
+    addConsoleLog(
+      `[Projeto] Novo formulário criado: ${formName} (${unitName}.pas / ${unitName}.lfm)`,
+      'success'
+    );
+  }, [forms, addConsoleLog]);
 
   // Switch active form in IDE
   const handleSwitchForm = useCallback((formId: string) => {
@@ -437,9 +484,80 @@ const LazarusIDE: React.FC = () => {
     setSelectedComponentIds([]);
     const target = forms.find(f => f.id === formId);
     if (target) {
-      setActiveCodeFile(`${target.unitName || 'Unit1'}.pas`.toLowerCase());
+      const pasName = `${target.unitName || 'Unit1'}.pas`.toLowerCase();
+      setActiveCodeFile(pasName);
+      setOpenCodeFiles(prev => prev.includes(pasName) ? prev : [...prev, pasName]);
       addConsoleLog(`Formulário ativo: ${target.name} (${target.unitName || 'Unit1'})`, 'info');
     }
+  }, [forms, addConsoleLog]);
+
+  // Open code file in editor tabs
+  const handleOpenCodeFile = useCallback((fileName: string) => {
+    const lower = fileName.toLowerCase();
+    setOpenCodeFiles(prev => {
+      if (!prev.includes(lower)) {
+        return [...prev, lower];
+      }
+      return prev;
+    });
+    setActiveCodeFile(lower);
+    setActiveTab('code');
+
+    const matchingForm = forms.find(
+      f => (f.unitName || '').toLowerCase() === lower.replace(/\.(pas|lfm)$/i, '').toLowerCase()
+    );
+    if (matchingForm) {
+      setActiveFormId(matchingForm.id);
+    }
+  }, [forms]);
+
+  // Close tab in editor without deleting file from project
+  const handleCloseCodeFile = useCallback((fileToClose: string) => {
+    const lowerToClose = fileToClose.toLowerCase();
+    setOpenCodeFiles(prev => {
+      const next = prev.filter(f => f.toLowerCase() !== lowerToClose);
+      if (activeCodeFile.toLowerCase() === lowerToClose) {
+        if (next.length > 0) {
+          const closedIdx = prev.findIndex(f => f.toLowerCase() === lowerToClose);
+          const newActive = next[Math.min(closedIdx, next.length - 1)];
+          setActiveCodeFile(newActive);
+          const matchingForm = forms.find(
+            f => (f.unitName || '').toLowerCase() === newActive.replace(/\.(pas|lfm)$/i, '').toLowerCase()
+          );
+          if (matchingForm) {
+            setActiveFormId(matchingForm.id);
+          }
+        } else {
+          setActiveTab('form');
+        }
+      }
+      return next;
+    });
+  }, [activeCodeFile, forms]);
+
+  // Remove Form from project (via Project Inspector)
+  const handleRemoveForm = useCallback((formId: string) => {
+    if (forms.length <= 1) {
+      addConsoleLog('[Aviso] O projeto deve conter pelo menos um formulário principal.', 'warning');
+      return;
+    }
+    const formToRemove = forms.find(f => f.id === formId);
+    if (!formToRemove) return;
+
+    const uName = (formToRemove.unitName || '').toLowerCase();
+    const pasFile = `${uName}.pas`;
+    const lfmFile = `${uName}.lfm`;
+
+    setForms(prev => prev.filter(f => f.id !== formId));
+    setOpenCodeFiles(prev => prev.filter(f => f.toLowerCase() !== pasFile && f.toLowerCase() !== lfmFile));
+
+    const remaining = forms.filter(f => f.id !== formId);
+    if (remaining.length > 0) {
+      setActiveFormId(remaining[0].id);
+      setActiveCodeFile(`${remaining[0].unitName || 'Unit1'}.pas`.toLowerCase());
+    }
+
+    addConsoleLog(`[Projeto] Formulário ${formToRemove.name} (${formToRemove.unitName}.pas) removido do projeto.`, 'info');
   }, [forms, addConsoleLog]);
 
   // Export Project Files (ZIP with all units, LFMs, project files)
@@ -539,7 +657,7 @@ const LazarusIDE: React.FC = () => {
     addConsoleLog('[Execução] Processo finalizado pelo usuário na IDE (Stop).', 'info');
   }, [addConsoleLog]);
 
-  // Global F9 & F12 keyboard shortcuts
+  // Global F9, F12, F11, Ctrl+F11 keyboard shortcuts
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.key === 'F9') {
@@ -548,6 +666,12 @@ const LazarusIDE: React.FC = () => {
       } else if (e.key === 'F12') {
         e.preventDefault();
         handleToggleFormCode();
+      } else if (e.ctrlKey && e.key === 'F11') {
+        e.preventDefault();
+        setLeftDockTab(t => t === 'project' ? 'inspector' : 'project');
+      } else if (!e.ctrlKey && e.key === 'F11') {
+        e.preventDefault();
+        setLeftDockTab('inspector');
       }
     };
     window.addEventListener('keydown', handleGlobalShortcuts);
@@ -592,6 +716,10 @@ const LazarusIDE: React.FC = () => {
         canUndo={historyIndex > 0}
         canRedo={historyIndex < history.length - 1}
         onOpenSample={handleOpenSample}
+        onToggleProjectInspector={() => {
+          setLeftDockTab(t => t === 'project' ? 'inspector' : 'project');
+        }}
+        isProjectInspectorOpen={leftDockTab === 'project' || isProjectInspectorFloating}
       />
 
       {/* Component Palette (Categorized Tabs & Controls) */}
@@ -600,18 +728,74 @@ const LazarusIDE: React.FC = () => {
         onSelectComponentType={setSelectedPaletteComponent}
       />
 
-      {/* Main Workspace (Object Inspector on Left, Designer/Code in Center) */}
+      {/* Main Workspace (Object Inspector / Project Inspector on Left, Designer/Code in Center) */}
       <div className="lazarus-workspace-body">
-        {/* Left Dock: Object Inspector */}
-        <ObjectInspector
-          form={form}
-          selectedComponentIds={selectedComponentIds}
-          onSelectComponent={handleSelectComponent}
-          onSelectForm={handleSelectForm}
-          onUpdateComponent={handleUpdateComponent}
-          onUpdateForm={handleUpdateForm}
-          onOpenEventHandler={handleOpenEventHandler}
-        />
+        {/* Left Dock Panel: Tabs between Object Inspector & Project Inspector */}
+        <aside className="lazarus-left-dock-panel">
+          <div className="left-dock-tabs-header">
+            <button
+              className={`dock-tab-btn ${leftDockTab === 'inspector' ? 'active' : ''}`}
+              onClick={() => setLeftDockTab('inspector')}
+              title="Inspetor de Objetos (F11)"
+            >
+              <Sliders size={13} />
+              <span>Inspetor de Objetos</span>
+            </button>
+            <button
+              className={`dock-tab-btn ${leftDockTab === 'project' ? 'active' : ''}`}
+              onClick={() => setLeftDockTab('project')}
+              title="Inspetor de Projetos (Ctrl+F11)"
+            >
+              <FolderOpen size={13} />
+              <span>Inspetor de Projetos</span>
+              <span className="dock-count-badge">{forms.length}</span>
+            </button>
+          </div>
+
+          <div className="left-dock-content">
+            {leftDockTab === 'inspector' ? (
+              <ObjectInspector
+                form={form}
+                selectedComponentIds={selectedComponentIds}
+                onSelectComponent={handleSelectComponent}
+                onSelectForm={handleSelectForm}
+                onUpdateComponent={handleUpdateComponent}
+                onUpdateForm={handleUpdateForm}
+                onOpenEventHandler={handleOpenEventHandler}
+              />
+            ) : (
+              <ProjectInspector
+                forms={forms}
+                activeFormId={activeFormId}
+                onSelectForm={handleSwitchForm}
+                onOpenCodeFile={handleOpenCodeFile}
+                onNewForm={handleNewForm}
+                onRemoveForm={handleRemoveForm}
+                isFloating={false}
+                onToggleFloat={() => setIsProjectInspectorFloating(true)}
+              />
+            )}
+          </div>
+        </aside>
+
+        {/* Floating Project Inspector Window (if popped out) */}
+        {isProjectInspectorFloating && (
+          <div className="floating-inspector-window-overlay" onClick={() => setIsProjectInspectorFloating(false)}>
+            <div className="floating-inspector-window-box" onClick={e => e.stopPropagation()}>
+              <ProjectInspector
+                forms={forms}
+                activeFormId={activeFormId}
+                onSelectForm={handleSwitchForm}
+                onOpenCodeFile={handleOpenCodeFile}
+                onNewForm={handleNewForm}
+                onRemoveForm={handleRemoveForm}
+                isFloating={true}
+                onClose={() => setIsProjectInspectorFloating(false)}
+                onToggleFloat={() => setIsProjectInspectorFloating(false)}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Center Dock: Form Designer or Code Editor */}
         <main className="lazarus-main-center">
@@ -644,8 +828,10 @@ const LazarusIDE: React.FC = () => {
               form={form}
               forms={forms}
               activeFile={activeCodeFile}
+              openFiles={openCodeFiles}
               activeEventToEdit={activeEventToEdit}
               onChangeActiveFile={setActiveCodeFile}
+              onCloseFile={handleCloseCodeFile}
               onSelectForm={handleSwitchForm}
               onToggleFormCode={handleToggleFormCode}
             />
