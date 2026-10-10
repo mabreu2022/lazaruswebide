@@ -394,7 +394,7 @@ const LazarusIDE: React.FC = () => {
   }, [form, addConsoleLog]);
 
   // Open sample project
-  const handleOpenSample = useCallback((type: 'calc' | 'login' | 'crud') => {
+  const handleOpenSample = useCallback((type: 'calc' | 'login' | 'crud' | 'firebird') => {
     const sample = getSampleProject(type);
     pushState(sample);
     setSelectedComponentIds([]);

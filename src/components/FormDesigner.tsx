@@ -4,7 +4,7 @@ import type {
   LComponentType,
   LForm
 } from '../types/lazarus';
-import { renderComponentIcon } from './ComponentPalette';
+import { renderComponentIcon } from './componentIcons';
 import {
   X,
   Minus,
@@ -845,6 +845,77 @@ const ComponentRenderer: React.FC<{ comp: LComponent }> = ({ comp }) => {
               <div className="grid-cell col-status tag-warn">Pendente</div>
             </div>
           </div>
+        </div>
+      );
+
+    case 'TDBNavigator':
+      return (
+        <div className="lcl-widget lcl-dbnavigator">
+          <button className="nav-btn" title="Primeiro">|◄</button>
+          <button className="nav-btn" title="Anterior">◄</button>
+          <button className="nav-btn" title="Próximo">►</button>
+          <button className="nav-btn" title="Último">►|</button>
+          <button className="nav-btn" title="Inserir">+</button>
+          <button className="nav-btn" title="Excluir">-</button>
+          <button className="nav-btn" title="Editar">✎</button>
+          <button className="nav-btn" title="Gravar">✔</button>
+          <button className="nav-btn" title="Cancelar">✖</button>
+          <button className="nav-btn" title="Atualizar">↻</button>
+        </div>
+      );
+
+    case 'TDBEdit':
+      return (
+        <div
+          className="lcl-widget lcl-dbedit"
+          style={{ ...fontStyle, backgroundColor: comp.color || '#ffffff' }}
+        >
+          <span className="dbedit-field">{comp.dataField ? `[${comp.dataField}]` : (comp.text || comp.name)}</span>
+          <span className="dbedit-tag">DB</span>
+        </div>
+      );
+
+    case 'TZConnection':
+      return (
+        <div className="lcl-widget lcl-zeos-component zconnection-widget" title={`${comp.name} - Firebird 5.0`}>
+          <div className="zeos-icon-box fb-badge">
+            {renderComponentIcon('Database', 20)}
+          </div>
+          <span className="zeos-comp-name">{comp.name}</span>
+          <span className="zeos-proto-tag">{comp.protocol || 'firebird-5.0'}</span>
+        </div>
+      );
+
+    case 'TZQuery':
+      return (
+        <div className="lcl-widget lcl-zeos-component zquery-widget" title={`${comp.name} - Consulta SQL`}>
+          <div className="zeos-icon-box query-badge">
+            {renderComponentIcon('TableProperties', 20)}
+          </div>
+          <span className="zeos-comp-name">{comp.name}</span>
+          <span className="zeos-proto-tag">{comp.active ? 'Active' : (comp.connectionName || 'ZQuery')}</span>
+        </div>
+      );
+
+    case 'TZTable':
+      return (
+        <div className="lcl-widget lcl-zeos-component ztable-widget" title={comp.name}>
+          <div className="zeos-icon-box table-badge">
+            {renderComponentIcon('Table', 20)}
+          </div>
+          <span className="zeos-comp-name">{comp.name}</span>
+          <span className="zeos-proto-tag">Table</span>
+        </div>
+      );
+
+    case 'TDataSource':
+      return (
+        <div className="lcl-widget lcl-zeos-component datasource-widget" title={`${comp.name} -> ${comp.datasetName || 'DataSet'}`}>
+          <div className="zeos-icon-box ds-badge">
+            {renderComponentIcon('Link2', 20)}
+          </div>
+          <span className="zeos-comp-name">{comp.name}</span>
+          <span className="zeos-proto-tag">{comp.datasetName || 'ds'}</span>
         </div>
       );
 

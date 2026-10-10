@@ -32,7 +32,7 @@ interface TopMenuBarProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  onOpenSample: (sampleType: 'calc' | 'crud' | 'login') => void;
+  onOpenSample: (sampleType: 'calc' | 'crud' | 'login' | 'firebird') => void;
 }
 
 export const TopMenuBar: React.FC<TopMenuBarProps> = ({
@@ -96,6 +96,9 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
                 </div>
                 <div className="dropdown-divider" />
                 <div className="dropdown-submenu-header">Modelos de Exemplo:</div>
+                <div className="dropdown-action" onClick={() => { onOpenSample('firebird'); closeMenu(); }}>
+                  <Layers size={14} /> Firebird 5.0 + Zeos (CRUD)
+                </div>
                 <div className="dropdown-action" onClick={() => { onOpenSample('calc'); closeMenu(); }}>
                   <Layers size={14} /> Calculadora Visual
                 </div>
@@ -309,6 +312,13 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
         {/* Sample Templates quick buttons */}
         <div className="tool-group samples-group">
           <span className="tool-label">Exemplos:</span>
+          <button
+            className="sample-quick-btn sample-highlight"
+            onClick={() => onOpenSample('firebird')}
+            title="Carregar exemplo completo Firebird 5.0 + Zeos DBO"
+          >
+            🔥 Firebird 5.0
+          </button>
           <button
             className="sample-quick-btn"
             onClick={() => onOpenSample('calc')}

@@ -381,6 +381,155 @@ export const ObjectInspector: React.FC<ObjectInspectorProps> = ({
                     onChange={(val) => onUpdateComponent(selectedComp.id, { hint: String(val) })}
                   />
                 )}
+
+                {/* Zeos / Firebird: TZConnection Properties */}
+                {selectedComp.type === 'TZConnection' && (
+                  <>
+                    {filterMatch('Protocol', filterQuery) && (
+                      <PropertyRow
+                        label="Protocol"
+                        type="select"
+                        options={['firebird-5.0', 'firebird-4.0', 'firebird-3.0', 'sqlite-3', 'postgresql', 'mysql']}
+                        value={selectedComp.protocol || 'firebird-5.0'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { protocol: String(val) })}
+                      />
+                    )}
+                    {filterMatch('HostName', filterQuery) && (
+                      <PropertyRow
+                        label="HostName"
+                        value={selectedComp.hostName ?? 'localhost'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { hostName: String(val) })}
+                      />
+                    )}
+                    {filterMatch('Port', filterQuery) && (
+                      <PropertyRow
+                        label="Port"
+                        type="number"
+                        value={selectedComp.port ?? 3050}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { port: Number(val) })}
+                      />
+                    )}
+                    {filterMatch('Database', filterQuery) && (
+                      <PropertyRow
+                        label="Database"
+                        value={selectedComp.database ?? 'C:\\Bancos\\meubanco.fdb'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { database: String(val) })}
+                      />
+                    )}
+                    {filterMatch('User', filterQuery) && (
+                      <PropertyRow
+                        label="User"
+                        value={selectedComp.user ?? 'SYSDBA'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { user: String(val) })}
+                      />
+                    )}
+                    {filterMatch('Password', filterQuery) && (
+                      <PropertyRow
+                        label="Password"
+                        value={selectedComp.password ?? 'masterkey'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { password: String(val) })}
+                      />
+                    )}
+                    {filterMatch('Connected', filterQuery) && (
+                      <PropertyRow
+                        label="Connected"
+                        type="boolean"
+                        value={selectedComp.connected ?? false}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { connected: Boolean(val) })}
+                      />
+                    )}
+                    {filterMatch('CharSet', filterQuery) && (
+                      <PropertyRow
+                        label="CharSet"
+                        value={selectedComp.charSet ?? 'UTF8'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { charSet: String(val) })}
+                      />
+                    )}
+                    {filterMatch('AutoCommit', filterQuery) && (
+                      <PropertyRow
+                        label="AutoCommit"
+                        type="boolean"
+                        value={selectedComp.autoCommit ?? true}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { autoCommit: Boolean(val) })}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Zeos / Firebird: TZQuery & TZTable Properties */}
+                {(selectedComp.type === 'TZQuery' || selectedComp.type === 'TZTable') && (
+                  <>
+                    {filterMatch('Connection', filterQuery) && (
+                      <PropertyRow
+                        label="Connection"
+                        type="select"
+                        options={['(Nenhum)', ...form.components.filter(c => c.type === 'TZConnection').map(c => c.name)]}
+                        value={selectedComp.connectionName || (form.components.find(c => c.type === 'TZConnection')?.name || '')}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { connectionName: String(val) })}
+                      />
+                    )}
+                    {selectedComp.type === 'TZQuery' && filterMatch('SQL', filterQuery) && (
+                      <PropertyRow
+                        label="SQL"
+                        value={selectedComp.sql ?? 'SELECT * FROM CLIENTES'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { sql: String(val) })}
+                      />
+                    )}
+                    {filterMatch('Active', filterQuery) && (
+                      <PropertyRow
+                        label="Active"
+                        type="boolean"
+                        value={selectedComp.active ?? false}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { active: Boolean(val) })}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Zeos: TDataSource Properties */}
+                {selectedComp.type === 'TDataSource' && (
+                  <>
+                    {filterMatch('DataSet', filterQuery) && (
+                      <PropertyRow
+                        label="DataSet"
+                        type="select"
+                        options={['(Nenhum)', ...form.components.filter(c => ['TZQuery', 'TZTable'].includes(c.type)).map(c => c.name)]}
+                        value={selectedComp.datasetName || (form.components.find(c => ['TZQuery', 'TZTable'].includes(c.type))?.name || '')}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { datasetName: String(val) })}
+                      />
+                    )}
+                    {filterMatch('AutoEdit', filterQuery) && (
+                      <PropertyRow
+                        label="AutoEdit"
+                        type="boolean"
+                        value={selectedComp.checked ?? true}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { checked: Boolean(val) })}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Data Controls: TDBGrid, TDBNavigator, TDBEdit */}
+                {['TDBGrid', 'TDBNavigator', 'TDBEdit'].includes(selectedComp.type) && (
+                  <>
+                    {filterMatch('DataSource', filterQuery) && (
+                      <PropertyRow
+                        label="DataSource"
+                        type="select"
+                        options={['(Nenhum)', ...form.components.filter(c => c.type === 'TDataSource').map(c => c.name)]}
+                        value={selectedComp.dataSourceName || (form.components.find(c => c.type === 'TDataSource')?.name || '')}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { dataSourceName: String(val) })}
+                      />
+                    )}
+                    {selectedComp.type === 'TDBEdit' && filterMatch('DataField', filterQuery) && (
+                      <PropertyRow
+                        label="DataField"
+                        value={selectedComp.dataField ?? 'NOME'}
+                        onChange={(val) => onUpdateComponent(selectedComp.id, { dataField: String(val) })}
+                      />
+                    )}
+                  </>
+                )}
               </>
             )}
 

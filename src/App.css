@@ -1405,6 +1405,129 @@
 .tag-warn { color: #f59e0b; font-weight: 600; }
 .grid-row.selected-row .tag-ok, .grid-row.selected-row .tag-warn { color: #ffffff; }
 
+/* Zeos Non-Visual Component Box on Form Designer */
+.lcl-zeos-component {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  height: 100%;
+  padding: 2px;
+  user-select: none;
+}
+
+.zeos-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  color: #ffffff;
+}
+
+.fb-badge {
+  color: #f97316; /* Firebird orange */
+}
+
+.query-badge {
+  color: #38bdf8; /* Query blue */
+}
+
+.table-badge {
+  color: #a855f7; /* Table purple */
+}
+
+.ds-badge {
+  color: #10b981; /* DataSource green */
+}
+
+.zeos-comp-name {
+  font-size: 9px;
+  font-weight: 600;
+  color: #f1f5f9;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zeos-proto-tag {
+  font-size: 7.5px;
+  color: #94a3b8;
+  font-family: var(--font-code);
+  text-transform: uppercase;
+}
+
+/* TDBNavigator */
+.lcl-dbnavigator {
+  display: flex;
+  align-items: center;
+  background: #ece9d8;
+  border: 1px solid #808080;
+  border-radius: 2px;
+  height: 100%;
+  padding: 1px;
+  gap: 1px;
+}
+
+.lcl-dbnavigator .nav-btn {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  border: 1px solid #707070;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #1e293b;
+  cursor: pointer;
+  padding: 0;
+}
+
+.lcl-dbnavigator .nav-btn:hover {
+  background: #e2e8f0;
+}
+
+.lcl-dbnavigator .nav-btn:active {
+  background: #cbd5e1;
+}
+
+/* TDBEdit */
+.lcl-dbedit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #7f9db9;
+  padding: 2px 6px;
+  color: #000000;
+  font-size: 13px;
+}
+
+.dbedit-tag {
+  font-size: 8px;
+  font-weight: 700;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 1px 3px;
+  border-radius: 2px;
+  margin-left: auto;
+}
+
+.dbedit-field {
+  color: #1e3a8a;
+  font-family: var(--font-code);
+  font-size: 11px;
+}
+
 /* ==========================================================================
    7. Code Editor (Unit1.pas / Unit1.lfm / Project1.lpr)
    ========================================================================== */

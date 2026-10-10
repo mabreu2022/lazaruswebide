@@ -1,6 +1,272 @@
 import type { LForm } from '../types/lazarus';
 
-export function getSampleProject(type: 'calc' | 'login' | 'crud'): LForm {
+export function getSampleProject(type: 'calc' | 'login' | 'crud' | 'firebird'): LForm {
+  if (type === 'firebird') {
+    return {
+      id: 'form_firebird',
+      name: 'FormClientesFB',
+      caption: 'Cadastro de Clientes - Firebird 5.0 (Zeos DBO)',
+      left: 40,
+      top: 30,
+      width: 660,
+      height: 500,
+      color: '#f8fafc',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: 13,
+      events: { OnCreate: 'FormCreate' },
+      eventCode: {
+        OnCreate: `begin\n  ZConnection1.Connected := True;\n  ZQuery1.Active := True;\n  StatusBar1.Caption := 'Conectado ao Firebird 5.0 (localhost:3050)';\nend;`
+      },
+      components: [
+        // Non-visual Zeos components
+        {
+          id: 'zconn_1',
+          type: 'TZConnection',
+          name: 'ZConnection1',
+          protocol: 'firebird-5.0',
+          hostName: 'localhost',
+          port: 3050,
+          database: 'C:\\Sistemas\\Dados\\EMPRESA.FDB',
+          user: 'SYSDBA',
+          password: 'masterkey',
+          connected: true,
+          charSet: 'UTF8',
+          left: 20,
+          top: 15,
+          width: 42,
+          height: 42,
+          enabled: true,
+          visible: true,
+          isNonVisual: true,
+          events: {},
+          eventCode: {}
+        },
+        {
+          id: 'zquery_1',
+          type: 'TZQuery',
+          name: 'ZQuery1',
+          connectionName: 'ZConnection1',
+          sql: 'SELECT ID, NOME, CNPJ_CPF, CIDADE, STATUS FROM CLIENTES ORDER BY ID',
+          active: true,
+          left: 70,
+          top: 15,
+          width: 42,
+          height: 42,
+          enabled: true,
+          visible: true,
+          isNonVisual: true,
+          events: {},
+          eventCode: {}
+        },
+        {
+          id: 'ds_1',
+          type: 'TDataSource',
+          name: 'DataSource1',
+          datasetName: 'ZQuery1',
+          left: 120,
+          top: 15,
+          width: 42,
+          height: 42,
+          enabled: true,
+          visible: true,
+          isNonVisual: true,
+          events: {},
+          eventCode: {}
+        },
+
+        // Top toolbar panel
+        {
+          id: 'pnl_top_fb',
+          type: 'TPanel',
+          name: 'PanelConexao',
+          caption: '',
+          left: 180,
+          top: 15,
+          width: 450,
+          height: 42,
+          color: '#ffffff',
+          enabled: true,
+          visible: true,
+          events: {},
+          eventCode: {}
+        },
+        {
+          id: 'btn_test_fb',
+          type: 'TButton',
+          name: 'BtnTestarConexao',
+          caption: 'Testar Firebird 5.0',
+          left: 195,
+          top: 22,
+          width: 140,
+          height: 28,
+          color: '#f97316',
+          fontColor: '#ffffff',
+          fontBold: true,
+          enabled: true,
+          visible: true,
+          events: { OnClick: 'BtnTestarConexaoClick' },
+          eventCode: {
+            OnClick: `begin\n  ShowMessage('Conexão Firebird 5.0 OK! Host: localhost:3050 | Banco: EMPRESA.FDB | Protocol: firebird-5.0');\nend;`
+          }
+        },
+        {
+          id: 'btn_open_query',
+          type: 'TButton',
+          name: 'BtnExecutarQuery',
+          caption: 'ZQuery1.Open',
+          left: 345,
+          top: 22,
+          width: 110,
+          height: 28,
+          color: '#2563eb',
+          fontColor: '#ffffff',
+          fontBold: true,
+          enabled: true,
+          visible: true,
+          events: { OnClick: 'BtnExecutarQueryClick' },
+          eventCode: {
+            OnClick: `begin\n  ShowMessage('Executado: SELECT ID, NOME, CIDADE FROM CLIENTES (4 registros)');\nend;`
+          }
+        },
+
+        // DBNavigator
+        {
+          id: 'nav_fb',
+          type: 'TDBNavigator',
+          name: 'DBNavigator1',
+          dataSourceName: 'DataSource1',
+          left: 20,
+          top: 75,
+          width: 280,
+          height: 30,
+          enabled: true,
+          visible: true,
+          events: { OnClick: 'DBNavigator1Click' },
+          eventCode: {
+            OnClick: `begin\n  ShowMessage('Navegação no DataSet ZQuery1 realizada com sucesso.');\nend;`
+          }
+        },
+
+        // DBGrid
+        {
+          id: 'grid_fb',
+          type: 'TDBGrid',
+          name: 'DBGridClientes',
+          dataSourceName: 'DataSource1',
+          left: 20,
+          top: 115,
+          width: 610,
+          height: 230,
+          enabled: true,
+          visible: true,
+          events: { OnCellClick: 'DBGridClientesCellClick' },
+          eventCode: {
+            OnCellClick: `begin\n  ShowMessage('Registro selecionado no Firebird: ' + DBEditNome.Text);\nend;`
+          }
+        },
+
+        // Data-aware fields (TDBEdit)
+        {
+          id: 'lbl_db_nome',
+          type: 'TLabel',
+          name: 'LabelNome',
+          caption: 'Razão Social / Nome (DBEdit):',
+          left: 20,
+          top: 360,
+          width: 180,
+          height: 18,
+          fontBold: true,
+          enabled: true,
+          visible: true,
+          events: {},
+          eventCode: {}
+        },
+        {
+          id: 'dbedt_nome',
+          type: 'TDBEdit',
+          name: 'DBEditNome',
+          dataSourceName: 'DataSource1',
+          dataField: 'NOME',
+          text: 'Tech Pascal Sistemas Eireli',
+          left: 20,
+          top: 382,
+          width: 320,
+          height: 30,
+          enabled: true,
+          visible: true,
+          events: {},
+          eventCode: {}
+        },
+        {
+          id: 'lbl_db_cid',
+          type: 'TLabel',
+          name: 'LabelCidade',
+          caption: 'Cidade / UF:',
+          left: 360,
+          top: 360,
+          width: 100,
+          height: 18,
+          fontBold: true,
+          enabled: true,
+          visible: true,
+          events: {},
+          eventCode: {}
+        },
+        {
+          id: 'dbedt_cidade',
+          type: 'TDBEdit',
+          name: 'DBEditCidade',
+          dataSourceName: 'DataSource1',
+          dataField: 'CIDADE',
+          text: 'Curitiba - PR',
+          left: 360,
+          top: 382,
+          width: 170,
+          height: 30,
+          enabled: true,
+          visible: true,
+          events: {},
+          eventCode: {}
+        },
+        {
+          id: 'btn_salvar',
+          type: 'TButton',
+          name: 'BtnSalvar',
+          caption: 'Gravar (Post)',
+          left: 545,
+          top: 382,
+          width: 85,
+          height: 30,
+          color: '#10b981',
+          fontColor: '#ffffff',
+          fontBold: true,
+          enabled: true,
+          visible: true,
+          events: { OnClick: 'BtnSalvarClick' },
+          eventCode: {
+            OnClick: `begin\n  ShowMessage('Transação Firebird comitada com sucesso! ZQuery1.Post;');\nend;`
+          }
+        },
+
+        // Status bar
+        {
+          id: 'status_fb',
+          type: 'TStatusBar',
+          name: 'StatusBar1',
+          caption: 'Firebird 5.0 [Online] | Protocol: firebird-5.0 | Dialect 3 | UTF8',
+          left: 20,
+          top: 430,
+          width: 610,
+          height: 24,
+          enabled: true,
+          visible: true,
+          events: {},
+          eventCode: {}
+        }
+      ]
+    };
+  }
+
   if (type === 'calc') {
     return {
       id: 'form_calc',

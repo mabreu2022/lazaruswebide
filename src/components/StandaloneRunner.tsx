@@ -508,7 +508,42 @@ const InteractiveWidget: React.FC<InteractiveWidgetProps> = ({ comp, onTrigger, 
         </div>
       );
 
+    case 'TDBNavigator':
+      return (
+        <div className="run-widget lcl-dbnavigator">
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Primeiro">|◄</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Anterior">◄</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Próximo">►</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Último">►|</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Inserir">+</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Excluir">-</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Editar">✎</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Gravar">✔</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Cancelar">✖</button>
+          <button className="nav-btn" onClick={() => onTrigger('OnClick')} title="Atualizar">↻</button>
+        </div>
+      );
+
+    case 'TDBEdit':
+      return (
+        <input
+          type="text"
+          className="run-widget run-edit"
+          style={{ ...fontStyle, backgroundColor: comp.color || '#ffffff' }}
+          disabled={!comp.enabled}
+          value={comp.text ?? ''}
+          placeholder={comp.dataField ? `[${comp.dataField}]` : (comp.placeholder || '')}
+          onChange={(e) => {
+            onUpdate({ text: e.target.value });
+            onTrigger('OnChange');
+          }}
+        />
+      );
+
     default:
+      if (comp.isNonVisual) {
+        return null;
+      }
       return (
         <div className="run-widget run-generic" onClick={() => onTrigger('OnClick')}>
           {comp.name}

@@ -1,4 +1,10 @@
-export type ComponentCategory = 'Standard' | 'Additional' | 'Common Controls' | 'Dialogs' | 'Data Controls';
+export type ComponentCategory =
+  | 'Standard'
+  | 'Additional'
+  | 'Common Controls'
+  | 'Dialogs'
+  | 'Data Controls'
+  | 'Zeos / Firebird';
 
 export type LComponentType =
   // Standard
@@ -29,7 +35,14 @@ export type LComponentType =
   | 'TOpenDialog'
   | 'TSaveDialog'
   // Data Controls
-  | 'TDBGrid';
+  | 'TDBGrid'
+  | 'TDBNavigator'
+  | 'TDBEdit'
+  // Zeos / Firebird 5.0 Database Access
+  | 'TZConnection'
+  | 'TZQuery'
+  | 'TZTable'
+  | 'TDataSource';
 
 export interface LComponentDefinition {
   type: LComponentType;
@@ -81,6 +94,22 @@ export interface LComponent {
   tabs?: string[];
   activeTab?: number;
   isNonVisual?: boolean;
+  // Database Properties (Firebird 5.0 & Zeos DBO)
+  protocol?: string;         // 'firebird-5.0', 'firebird-4.0', 'sqlite-3', etc.
+  hostName?: string;         // 'localhost'
+  port?: number;             // 3050
+  database?: string;         // 'C:\Bancos\banco.fdb'
+  user?: string;             // 'SYSDBA'
+  password?: string;         // 'masterkey'
+  connected?: boolean;       // True / False
+  charSet?: string;          // 'UTF8'
+  autoCommit?: boolean;      // True / False
+  connectionName?: string;   // Reference to TZConnection
+  sql?: string;              // 'SELECT * FROM CLIENTES'
+  active?: boolean;          // True / False
+  datasetName?: string;      // Reference to TZQuery / TZTable
+  dataSourceName?: string;   // Reference to TDataSource
+  dataField?: string;        // 'NOME', 'EMAIL', etc.
   // Events mapping: event name -> method name
   events: Record<string, string>;
   // Custom code inside the event procedure

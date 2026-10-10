@@ -4,6 +4,14 @@ import type { LForm } from '../types/lazarus';
  * Generates an authentic Object Pascal Unit (.pas) for Lazarus/Free Pascal
  */
 export function generateUnitPas(form: LForm): string {
+  // Check if database / Zeos components exist
+  const hasZeos = form.components.some(c => c.type.startsWith('TZ'));
+  const hasDB = form.components.some(c => c.type.startsWith('TDB') || c.type === 'TDataSource');
+
+  const extraUses = [];
+  if (hasDB) extraUses.push('DB');
+  if (hasZeos) extraUses.push('ZConnection', 'ZDataset', 'ZAbstractRODataset');
+
   // Collect event procedures
   const eventSignatures: string[] = [];
   const eventImplementations: string[] = [];
@@ -35,6 +43,12 @@ export function generateUnitPas(form: LForm): string {
     .map(comp => `    ${comp.name}: ${comp.type};`)
     .join('\n');
 
+  const usesLine = [
+    'Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,',
+    'ExtCtrls, ComCtrls, Grids',
+    ...extraUses
+  ].join(', ');
+
   return `unit Unit1;
 
 {$mode objfpc}{$H+}
@@ -42,8 +56,7 @@ export function generateUnitPas(form: LForm): string {
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  ExtCtrls, ComCtrls, Grids;
+  ${usesLine};
 
 type
 
@@ -84,11 +97,11 @@ export function generateLFM(form: LForm): string {
       `    Width = ${Math.round(comp.width)}`
     ];
 
-    if (comp.caption !== undefined) {
+    if (comp.caption !== undefined && !comp.type.startsWith('TZ') && comp.type !== 'TDataSource') {
       lines.push(`    Caption = '${comp.caption.replace(/'/g, "''")}'`);
     }
 
-    if (comp.text !== undefined && comp.text !== '') {
+    if (comp.text !== undefined && comp.text !== '' && !comp.type.startsWith('TZ')) {
       lines.push(`    Text = '${comp.text.replace(/'/g, "''")}'`);
     }
 
@@ -96,7 +109,7 @@ export function generateLFM(form: LForm): string {
       lines.push(`    Enabled = False`);
     }
 
-    if (!comp.visible) {
+    if (!comp.visible && !comp.isNonVisual) {
       lines.push(`    Visible = False`);
     }
 
@@ -106,6 +119,49 @@ export function generateLFM(form: LForm): string {
 
     if (comp.align && comp.align !== 'alNone') {
       lines.push(`    Align = ${comp.align}`);
+    }
+
+    // Zeos TZConnection properties
+    if (comp.type === 'TZConnection') {
+      lines.push(`    Protocol = '${comp.protocol || 'firebird-5.0'}'`);
+      lines.push(`    HostName = '${comp.hostName || 'localhost'}'`);
+      lines.push(`    Port = ${comp.port || 3050}`);
+      lines.push(`    Database = '${(comp.database || 'C:\\Bancos\\meubanco.fdb').replace(/'/g, "''")}'`);
+      lines.push(`    User = '${comp.user || 'SYSDBA'}'`);
+      lines.push(`    Password = '${comp.password || 'masterkey'}'`);
+      if (comp.connected) lines.push(`    Connected = True`);
+      if (comp.charSet) lines.push(`    CharSet = '${comp.charSet}'`);
+    }
+
+    // Zeos TZQuery properties
+    if (comp.type === 'TZQuery') {
+      if (comp.connectionName) lines.push(`    Connection = ${comp.connectionName}`);
+      if (comp.sql) {
+        lines.push(`    SQL.Strings = (`);
+        lines.push(`      '${comp.sql.replace(/'/g, "''")}'`);
+        lines.push(`    )`);
+      }
+      if (comp.active) lines.push(`    Active = True`);
+    }
+
+    // Zeos TZTable properties
+    if (comp.type === 'TZTable') {
+      if (comp.connectionName) lines.push(`    Connection = ${comp.connectionName}`);
+      if (comp.text) lines.push(`    TableName = '${comp.text}'`);
+      if (comp.active) lines.push(`    Active = True`);
+    }
+
+    // TDataSource properties
+    if (comp.type === 'TDataSource') {
+      if (comp.datasetName) lines.push(`    DataSet = ${comp.datasetName}`);
+    }
+
+    // TDBGrid, TDBNavigator, TDBEdit
+    if (['TDBGrid', 'TDBNavigator', 'TDBEdit'].includes(comp.type)) {
+      if (comp.dataSourceName) lines.push(`    DataSource = ${comp.dataSourceName}`);
+      if (comp.type === 'TDBEdit' && comp.dataField) {
+        lines.push(`    DataField = '${comp.dataField}'`);
+      }
     }
 
     // Events in LFM
@@ -146,7 +202,7 @@ uses
   cthreads,
   {$ENDIF}
   Interfaces, // LCL Widgetset
-  Forms, Unit1;
+  Forms, Unit1, zcore;
 
 {$R *.res}
 

@@ -247,10 +247,76 @@ export const COMPONENT_DEFINITIONS: Record<LComponentType, LComponentDefinition>
     category: 'Data Controls',
     defaultName: 'DBGrid',
     defaultCaption: '',
-    defaultWidth: 280,
-    defaultHeight: 140,
+    defaultWidth: 320,
+    defaultHeight: 160,
     iconName: 'Table',
-    description: 'Grade de dados tabulares (Grid de Banco de Dados)'
+    description: 'Grade de dados tabulares ligada a um DataSource'
+  },
+  TDBNavigator: {
+    type: 'TDBNavigator',
+    category: 'Data Controls',
+    defaultName: 'DBNavigator',
+    defaultCaption: '',
+    defaultWidth: 240,
+    defaultHeight: 28,
+    iconName: 'Navigation',
+    description: 'Barra de navegação de registros (Primeiro, Anterior, Próximo, Último, Inserir, Excluir, Gravar)'
+  },
+  TDBEdit: {
+    type: 'TDBEdit',
+    category: 'Data Controls',
+    defaultName: 'DBEdit',
+    defaultCaption: '',
+    defaultWidth: 140,
+    defaultHeight: 26,
+    iconName: 'TextCursorInput',
+    description: 'Caixa de entrada de texto vinculada a um campo de banco de dados (DataField)'
+  },
+
+  // Zeos / Firebird 5.0 Database Access
+  TZConnection: {
+    type: 'TZConnection',
+    category: 'Zeos / Firebird',
+    defaultName: 'ZConnection',
+    defaultCaption: 'ZConnection1',
+    defaultWidth: 42,
+    defaultHeight: 42,
+    iconName: 'Database',
+    description: 'Conexão nativa com Banco de Dados Firebird 5.0 (Zeos DBO)',
+    isNonVisual: true
+  },
+  TZQuery: {
+    type: 'TZQuery',
+    category: 'Zeos / Firebird',
+    defaultName: 'ZQuery',
+    defaultCaption: 'ZQuery1',
+    defaultWidth: 42,
+    defaultHeight: 42,
+    iconName: 'TableProperties',
+    description: 'Dataset de Consulta SQL Firebird 5.0 (Zeos DBO)',
+    isNonVisual: true
+  },
+  TZTable: {
+    type: 'TZTable',
+    category: 'Zeos / Firebird',
+    defaultName: 'ZTable',
+    defaultCaption: 'ZTable1',
+    defaultWidth: 42,
+    defaultHeight: 42,
+    iconName: 'Table',
+    description: 'Dataset de Tabela Firebird 5.0 (Zeos DBO)',
+    isNonVisual: true
+  },
+  TDataSource: {
+    type: 'TDataSource',
+    category: 'Zeos / Firebird',
+    defaultName: 'DataSource',
+    defaultCaption: 'DataSource1',
+    defaultWidth: 42,
+    defaultHeight: 42,
+    iconName: 'Link2',
+    description: 'Conector de dados entre Datasets (ZQuery) e componentes visuais (DBGrid)',
+    isNonVisual: true
   }
 };
 
@@ -278,7 +344,13 @@ export const STANDARD_EVENTS: Record<LComponentType, string[]> = {
   TPageControl: ['OnChange'],
   TOpenDialog: ['OnClose'],
   TSaveDialog: ['OnClose'],
-  TDBGrid: ['OnCellClick', 'OnDblClick']
+  TDBGrid: ['OnCellClick', 'OnDblClick'],
+  TDBNavigator: ['OnClick'],
+  TDBEdit: ['OnChange', 'OnExit'],
+  TZConnection: ['AfterConnect', 'BeforeConnect', 'AfterDisconnect'],
+  TZQuery: ['AfterOpen', 'BeforeOpen', 'AfterClose', 'AfterPost', 'AfterDelete'],
+  TZTable: ['AfterOpen', 'AfterPost'],
+  TDataSource: ['OnDataChange', 'OnUpdateData']
 };
 
 export const FORM_EVENTS = ['OnCreate', 'OnShow', 'OnClose', 'OnClick', 'OnResize'];
